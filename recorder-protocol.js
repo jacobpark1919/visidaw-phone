@@ -1,7 +1,7 @@
-(function attachFloofRecorderProtocol(root, factory) {
+(function attachVisiDAWRecorderProtocol(root, factory) {
   const protocol = factory();
   if (typeof module === "object" && module.exports) module.exports = protocol;
-  if (root) root.FloofRecorderProtocol = protocol;
+  if (root) root.VisiDAWRecorderProtocol = protocol;
 })(typeof window !== "undefined" ? window : globalThis, () => {
   function medianFrameInterval(intervals) {
     const sorted = Array.from(intervals || [])

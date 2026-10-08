@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>floof WebRTC receiver</title>
+    <title>visidaw WebRTC receiver</title>
     <style>
       body {
         margin: 0;
@@ -81,7 +81,7 @@
   <body>
     <main>
       <header>
-        <h1>floof WebRTC receiver</h1>
+        <h1>visidaw WebRTC receiver</h1>
         <button id="start">Start Receiver</button>
       </header>
       <video id="remote" autoplay muted playsinline controls></video>
@@ -118,10 +118,10 @@
       let pendingCaptureBoundaryStop = null;
       let captureBoundaryFallbackTimer = null;
       let captureBoundaryHardTimer = null;
-      let activeFloofRecordingTakeId = null;
+      let activeVisiDAWRecordingTakeId = null;
       const addedPhoneCandidates = new Set();
 
-      window.floofRecorderProtocolVersion = 2;
+      window.visidawRecorderProtocolVersion = 2;
 
       sessionLabel.textContent = session;
 
@@ -145,13 +145,13 @@
         status.className = kind;
       }
 
-      function emitToFloof(payload) {
-        if (payload && activeFloofRecordingTakeId !== null && payload.takeId === undefined) {
-          payload.takeId = activeFloofRecordingTakeId;
+      function emitToVisiDAW(payload) {
+        if (payload && activeVisiDAWRecordingTakeId !== null && payload.takeId === undefined) {
+          payload.takeId = activeVisiDAWRecordingTakeId;
         }
 
         if (window.__JUCE__ && window.__JUCE__.backend) {
-          window.__JUCE__.backend.emitEvent("floofWebRtcVideo", payload);
+          window.__JUCE__.backend.emitEvent("visidawWebRtcVideo", payload);
         }
       }
 
@@ -187,7 +187,7 @@
           return;
         }
 
-        emitToFloof({
+        emitToVisiDAW({
           type: "timing",
           source: "requestVideoFrameCallback",
           videoLatencyMs,
@@ -200,7 +200,7 @@
 
       function samplePhoneSyncFrames() {
         if (!remote || typeof remote.requestVideoFrameCallback !== "function") {
-          emitToFloof({
+          emitToVisiDAW({
             type: "timingUnavailable",
             reason: !remote ? "video element not found" : "requestVideoFrameCallback unavailable"
           });
@@ -241,7 +241,7 @@
           return;
         }
 
-        const timing = window.FloofRecorderProtocol.calculateDuration(
+        const timing = window.VisiDAWRecorderProtocol.calculateDuration(
           firstRecorderMediaTimeSeconds,
           lastRecorderMediaTimeSeconds,
           recorderFrameIntervalsSeconds,
@@ -250,14 +250,14 @@
         recorderStopRequested = false;
         mediaRecorder = null;
         setStatus("WebRTC video saved.", "ok");
-        emitToFloof({
+        emitToVisiDAW({
           type: "stopped",
           chunkCount: nextRecorderChunkSequence,
           bytes: recorderBytesSent,
           sourceDurationSeconds: timing.sourceDurationSeconds,
           finalFrameIntervalSeconds: timing.finalFrameIntervalSeconds
         });
-        activeFloofRecordingTakeId = null;
+        activeVisiDAWRecordingTakeId = null;
       }
 
       function clearCaptureBoundaryTimers() {
@@ -308,7 +308,7 @@
         }
 
         if (pendingCaptureBoundaryStop
-            && window.FloofRecorderProtocol.captureBoundaryReached(
+            && window.VisiDAWRecorderProtocol.captureBoundaryReached(
               captureTimeMs,
               pendingCaptureBoundaryStop.targetCaptureTimeMs
             )) {
@@ -341,10 +341,10 @@
         return null;
       }
 
-      window.floofStartWebRtcRecording = (takeId = null) => {
+      window.visidawStartWebRtcRecording = (takeId = null) => {
         try {
           const numericTakeId = Number(takeId);
-          activeFloofRecordingTakeId = Number.isFinite(numericTakeId) && numericTakeId > 0
+          activeVisiDAWRecordingTakeId = Number.isFinite(numericTakeId) && numericTakeId > 0
             ? numericTakeId
             : null;
 
@@ -399,7 +399,7 @@
             reader.onload = () => {
               const result = String(reader.result || "");
               const commaIndex = result.indexOf(",");
-              emitToFloof({
+              emitToVisiDAW({
                 type: "chunk",
                 sequence,
                 data: commaIndex >= 0 ? result.slice(commaIndex + 1) : result
@@ -409,7 +409,7 @@
             };
             reader.onerror = () => {
               pendingChunkReads -= 1;
-              emitToFloof({
+              emitToVisiDAW({
                 type: "error",
                 message: "Could not read WebRTC recording chunk"
               });
@@ -429,40 +429,40 @@
             pendingCaptureBoundaryStop = null;
             clearCaptureBoundaryTimers();
             mediaRecorder = null;
-            emitToFloof({
+            emitToVisiDAW({
               type: "error",
               message: event.error ? event.error.message : "MediaRecorder error"
             });
-            activeFloofRecordingTakeId = null;
+            activeVisiDAWRecordingTakeId = null;
           };
 
           mediaRecorder.start(1000);
           beginRecorderFrameMonitor();
           setStatus("Recording WebRTC video.", "ok");
-          emitToFloof({ type: "started" });
+          emitToVisiDAW({ type: "started" });
           setTimeout(samplePhoneSyncFrames, 120);
           setTimeout(samplePhoneSyncFrames, 600);
         } catch (error) {
-          emitToFloof({
+          emitToVisiDAW({
             type: "error",
             message: error.message || error.name
           });
-          activeFloofRecordingTakeId = null;
+          activeVisiDAWRecordingTakeId = null;
         }
       };
 
-      window.floofStopWebRtcRecording = (options = {}) => {
+      window.visidawStopWebRtcRecording = (options = {}) => {
         try {
           if (!mediaRecorder || mediaRecorder.state === "inactive") {
             recorderStopRequested = false;
-            emitToFloof({
+            emitToVisiDAW({
               type: "stopped",
               chunkCount: nextRecorderChunkSequence,
               bytes: recorderBytesSent,
               sourceDurationSeconds: Math.max(0, (performance.now() - recorderStartedAtMs) / 1000),
               finalFrameIntervalSeconds: 0
             });
-            activeFloofRecordingTakeId = null;
+            activeVisiDAWRecordingTakeId = null;
             return;
           }
 
@@ -472,7 +472,7 @@
           }
 
           const requestedAtMs = performance.now();
-          const estimatedFrameIntervalMs = window.FloofRecorderProtocol
+          const estimatedFrameIntervalMs = window.VisiDAWRecorderProtocol
             .medianFrameInterval(recorderFrameIntervalsSeconds) * 1000;
           const fallbackDelayMs = Number.isFinite(Number(options.fallbackDelayMs))
             ? Math.max(0, Math.min(1900, Number(options.fallbackDelayMs) + 2 * estimatedFrameIntervalMs))
@@ -497,11 +497,11 @@
           }
           beginRecorderFrameMonitor();
         } catch (error) {
-          emitToFloof({
+          emitToVisiDAW({
             type: "error",
             message: error.message || error.name
           });
-          activeFloofRecordingTakeId = null;
+          activeVisiDAWRecordingTakeId = null;
         }
       };
 

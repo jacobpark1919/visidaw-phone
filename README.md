@@ -1,11 +1,11 @@
-# floof phone web
+# VisiDAW phone web
 
-This is the prototype HTTPS phone camera/WebRTC pairing site for `floof`.
+This is the prototype HTTPS phone camera/WebRTC pairing site for VisiDAW.
 
 It is designed for Vercel:
 
 - `index.html` opens the iPhone camera over HTTPS and sends it with WebRTC
-- `desktop.html` receives the WebRTC stream and emits ordered protocol-2 recording chunks to floof
+- `desktop.html` receives the WebRTC stream and emits ordered protocol-2 recording chunks to VisiDAW
 - `recorder-protocol.js` provides shared recording-duration and capture-boundary calculations
 - `api/signal.js` stores temporary WebRTC offer/answer/ICE signaling messages
 - `api/frame.js` is the older JPEG relay fallback/prototype endpoint
@@ -45,7 +45,7 @@ Deploy this folder as the Vercel project root.
 After deployment, you can verify that KV is working by opening:
 
 ```text
-https://floof-phone.vercel.app/api/frame?session=test&debug=1
+https://visidaw-phone.vercel.app/api/frame?session=test&debug=1
 ```
 
 It should return JSON with `"ok": true`.
@@ -53,24 +53,32 @@ It should return JSON with `"ok": true`.
 After deployment, the desktop app expects:
 
 ```text
-https://floof-phone.vercel.app
+https://visidaw-phone.vercel.app
 ```
 
 Before distributing a native build that requires recorder protocol 2, verify in the deployed receiver console:
 
 ```js
-window.floofRecorderProtocolVersion
+window.visidawRecorderProtocolVersion
 ```
 
 It must return `2`. Run the receiver protocol tests with `npm test` before deployment.
 
-If your Vercel URL changes, update `phoneCloudBaseUrl` in `src/MainComponent.cpp`.
+The receiver exports `window.visidawStartWebRtcRecording` and
+`window.visidawStopWebRtcRecording`, advertises
+`window.visidawRecorderProtocolVersion`, and emits `visidawWebRtcVideo` events.
+Deploy this receiver together with the matching VisiDAW desktop bridge rename;
+older desktop builds using the previous bridge names will not receive its events.
+Protocol version 2 and its timing limitations are unchanged by this rename.
+
+If your Vercel URL changes, configure the desktop build with
+`-DVISIDAW_PHONE_WEB_BASE_URL=https://your-phone-origin.example`.
 
 ## WebRTC Flow
 
-1. In floof, choose `Phone as Webcam (WebRTC)`.
-2. floof opens `desktop.html?s=<session>` in the computer's browser.
-3. Scan the QR from floof with the iPhone.
+1. In VisiDAW, choose `Phone as Webcam (WebRTC)`.
+2. VisiDAW opens `desktop.html?s=<session>` in the computer's browser.
+3. Scan the QR from VisiDAW with the iPhone.
 4. Tap `Start Camera`.
 5. Click `Start Receiver` in the desktop browser page if it has not already started.
 
