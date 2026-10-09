@@ -56,7 +56,7 @@
       }
 
       #flip { padding: 12px 8px; font-size: 12px; }
-      #flip svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--accent); }
+      #flip svg { width: 16px; height: 16px; flex-shrink: 0; color: #fff; }
       #torch { grid-column: 1 / -1; }
 
       label {
@@ -72,12 +72,13 @@
         -webkit-appearance: none;
         width: 100%;
         min-width: 0;
-        height: 24px;
+        height: 48px;
         margin: 0;
         padding: 0;
         background: transparent;
         accent-color: var(--accent);
         cursor: pointer;
+        touch-action: none;
       }
 
       input[type="range"]::-webkit-slider-runnable-track {
@@ -89,12 +90,14 @@
       input[type="range"]::-webkit-slider-thumb {
         appearance: none;
         -webkit-appearance: none;
-        width: 12px;
-        height: 12px;
-        margin-top: -4px;
-        border: 0;
+        box-sizing: border-box;
+        width: 44px;
+        height: 44px;
+        margin-top: -20px;
+        border: 10px solid transparent;
         border-radius: 50%;
         background: var(--accent);
+        background-clip: content-box;
       }
 
       input[type="range"]::-moz-range-track {
@@ -104,11 +107,13 @@
       }
 
       input[type="range"]::-moz-range-thumb {
-        width: 12px;
-        height: 12px;
-        border: 0;
+        box-sizing: border-box;
+        width: 44px;
+        height: 44px;
+        border: 10px solid transparent;
         border-radius: 50%;
         background: var(--accent);
+        background-clip: content-box;
       }
 
       input[type="range"]:disabled { cursor: not-allowed; }
@@ -142,9 +147,9 @@
         </button>
         <div id="zoomWrap" class="control">
           <label id="zoomLabel" for="zoom">Zoom unavailable</label>
-          <input id="zoom" type="range" min="1" max="1" step="0.1" value="1" disabled />
+          <input id="zoom" type="range" min="1" max="1" step="0.01" value="1" disabled />
         </div>
-        <button id="torch" class="secondary" type="button" hidden>Torch Off</button>
+        <button id="torch" class="secondary" type="button" hidden>Flashlight Off</button>
       </div>
       <button id="start">Start Camera</button>
       <p id="status" class="small" role="status" aria-live="polite">Waiting for camera permission.</p>
@@ -168,8 +173,11 @@
       let localStream = null;
       let activeVideoTrack = null;
       let videoSender = null;
-      let currentFacingMode = "environment";
+      let currentFacingMode = "user";
       let torchEnabled = false;
+      let zoomFrame = null;
+      let pendingZoom = null;
+      let zoomApplying = false;
       let pollTimer = null;
       let answerApplied = false;
       let offerPosted = false;
@@ -241,7 +249,7 @@
         flipButton.disabled = !activeVideoTrack;
 
         if (zoom && Number.isFinite(zoom.min) && Number.isFinite(zoom.max) && zoom.max > zoom.min) {
-          const step = typeof zoom.step === "number" && zoom.step > 0 ? zoom.step : 0.1;
+          const step = typeof zoom.step === "number" && zoom.step > 0 ? zoom.step : 0.01;
           zoomSlider.min = zoom.min;
           zoomSlider.max = zoom.max;
           zoomSlider.step = step;
@@ -261,13 +269,13 @@
         if (capabilities.torch === true) {
           torchButton.hidden = false;
           torchButton.disabled = false;
-          torchButton.textContent = torchEnabled ? "Torch On" : "Torch Off";
+          torchButton.textContent = torchEnabled ? "Flashlight On" : "Flashlight Off";
           torchButton.className = torchEnabled ? "toggle-on" : "secondary";
         } else {
           torchEnabled = false;
           torchButton.hidden = true;
           torchButton.disabled = true;
-          torchButton.textContent = "Torch Off";
+          torchButton.textContent = "Flashlight Off";
           torchButton.className = "secondary";
         }
       }
@@ -302,6 +310,10 @@
           throw error;
         }
 
+        // Discard queued zoom from the previous camera before replacing its track.
+        window.cancelAnimationFrame(zoomFrame);
+        zoomFrame = null;
+        pendingZoom = null;
         localStream = stream;
         activeVideoTrack = newTrack || null;
         torchEnabled = false;
@@ -393,19 +405,40 @@
         }
       }
 
+      function scheduleZoom() {
+        if (zoomFrame === null && !zoomApplying && pendingZoom !== null) {
+          zoomFrame = window.requestAnimationFrame(applyZoom);
+        }
+      }
+
       async function applyZoom() {
-        if (!activeVideoTrack || !activeVideoTrack.applyConstraints) {
+        zoomFrame = null;
+        if (!activeVideoTrack || !activeVideoTrack.applyConstraints || zoomApplying || pendingZoom === null) {
           return;
         }
 
+        const track = activeVideoTrack;
+        const zoom = pendingZoom;
+        pendingZoom = null;
+        zoomApplying = true;
+
         try {
-          await activeVideoTrack.applyConstraints({
-            advanced: [{ zoom: Number(zoomSlider.value) }]
+          await track.applyConstraints({
+            advanced: [{ zoom }]
           });
-          setStatus("Zoom changed.", "small ok");
+          if (track === activeVideoTrack && pendingZoom === null) {
+            setStatus("Zoom changed.", "small ok");
+          }
         } catch (error) {
-          setStatus("Camera setting failed: " + (error.message || error.name), "small err");
-          refreshCameraControls();
+          if (track === activeVideoTrack) {
+            pendingZoom = null;
+            setStatus("Camera setting failed: " + (error.message || error.name), "small err");
+            refreshCameraControls();
+          }
+        } finally {
+          zoomApplying = false;
+          // Keep only the latest drag position while the camera applies a change.
+          scheduleZoom();
         }
       }
 
@@ -413,7 +446,7 @@
         const capabilities = getTrackCapabilities(activeVideoTrack);
 
         if (!activeVideoTrack || !activeVideoTrack.applyConstraints || capabilities.torch !== true) {
-          setStatus("Torch is unsupported on this camera/browser.", "small");
+          setStatus("Flashlight is unsupported on this camera/browser.", "small");
           refreshCameraControls();
           return;
         }
@@ -426,7 +459,7 @@
           });
           torchEnabled = nextTorch;
           refreshCameraControls();
-          setStatus(torchEnabled ? "Torch enabled." : "Torch disabled.", "small ok");
+          setStatus(torchEnabled ? "Flashlight enabled." : "Flashlight disabled.", "small ok");
         } catch (error) {
           setStatus("Camera setting failed: " + (error.message || error.name), "small err");
           refreshCameraControls();
@@ -457,8 +490,12 @@
       };
 
       zoomSlider.oninput = () => {
-        window.clearTimeout(zoomSlider.applyTimer);
-        zoomSlider.applyTimer = window.setTimeout(applyZoom, 120);
+        if (zoomSlider.disabled) {
+          return;
+        }
+
+        pendingZoom = Number(zoomSlider.value);
+        scheduleZoom();
       };
 
       torchButton.onclick = toggleTorch;
