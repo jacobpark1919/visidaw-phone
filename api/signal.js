@@ -65,71 +65,76 @@ function addCandidate(list, candidate) {
   return next.slice(-64);
 }
 
-module.exports = async function handler(req, res) {
-  setCorsHeaders(res);
+function createHandler(getStore = getKv) {
+  return async function handler(req, res) {
+    setCorsHeaders(res);
 
-  if (req.method === "OPTIONS") {
-    res.status(204).end();
-    return;
-  }
-
-  try {
-    const kv = await getKv();
-
-    if (req.method === "GET") {
-      const session = getSession(req);
-      const state = await kv.get(`floof:webrtc:${session}`);
-      res.status(200).json(state || createEmptyState(session));
+    if (req.method === "OPTIONS") {
+      res.status(204).end();
       return;
     }
 
-    if (req.method !== "POST") {
-      res.status(405).json({ error: "Method not allowed" });
-      return;
-    }
+    try {
+      const kv = await getStore();
 
-    const body = await readJson(req);
-    const session = getSession(req, body);
-    const key = `floof:webrtc:${session}`;
-    const type = String(body.type || "");
-    const role = String(body.role || "");
-
-    if (type === "clear") {
-      await kv.del(key);
-      res.status(200).json({ ok: true, state: createEmptyState(session) });
-      return;
-    }
-
-    let state = await kv.get(key);
-
-    if (!state || typeof state !== "object") {
-      state = createEmptyState(session);
-    }
-
-    state.session = session;
-    state.updatedAt = Date.now();
-
-    if (type === "offer") {
-      state.offer = body.description || null;
-      state.answer = null;
-      state.phoneCandidates = [];
-      state.desktopCandidates = [];
-    } else if (type === "answer") {
-      state.answer = body.description || null;
-    } else if (type === "candidate") {
-      if (role === "phone") {
-        state.phoneCandidates = addCandidate(state.phoneCandidates || [], body.candidate);
-      } else if (role === "desktop") {
-        state.desktopCandidates = addCandidate(state.desktopCandidates || [], body.candidate);
+      if (req.method === "GET") {
+        const session = getSession(req);
+        const state = await kv.get(`floof:webrtc:${session}`);
+        res.status(200).json(state || createEmptyState(session));
+        return;
       }
-    } else {
-      res.status(400).json({ error: "Unknown signal type" });
-      return;
-    }
 
-    await kv.set(key, state, { ex: 600 });
-    res.status(200).json({ ok: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message || "Signal failed" });
-  }
-};
+      if (req.method !== "POST") {
+        res.status(405).json({ error: "Method not allowed" });
+        return;
+      }
+
+      const body = await readJson(req);
+      const session = getSession(req, body);
+      const key = `floof:webrtc:${session}`;
+      const type = String(body.type || "");
+      const role = String(body.role || "");
+
+      if (type === "clear") {
+        await kv.del(key);
+        res.status(200).json({ ok: true, state: createEmptyState(session) });
+        return;
+      }
+
+      let state = await kv.get(key);
+
+      if (!state || typeof state !== "object") {
+        state = createEmptyState(session);
+      }
+
+      state.session = session;
+      state.updatedAt = Date.now();
+
+      if (type === "offer") {
+        state.offer = body.description || null;
+        state.answer = null;
+        state.phoneCandidates = [];
+        state.desktopCandidates = [];
+      } else if (type === "answer") {
+        state.answer = body.description || null;
+      } else if (type === "candidate") {
+        if (role === "phone") {
+          state.phoneCandidates = addCandidate(state.phoneCandidates || [], body.candidate);
+        } else if (role === "desktop") {
+          state.desktopCandidates = addCandidate(state.desktopCandidates || [], body.candidate);
+        }
+      } else {
+        res.status(400).json({ error: "Unknown signal type" });
+        return;
+      }
+
+      await kv.set(key, state, { ex: 600 });
+      res.status(200).json({ ok: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message || "Signal failed" });
+    }
+  };
+}
+
+module.exports = createHandler();
+module.exports.createHandler = createHandler;

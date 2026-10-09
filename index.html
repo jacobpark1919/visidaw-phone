@@ -3,164 +3,151 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>visidaw phone camera</title>
+    <title>VisiDAW phone camera</title>
+    <meta name="theme-color" content="#0a090c" />
+    <link rel="stylesheet" href="/theme.css" />
     <style>
-      body {
-        margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;
-        background: #111;
-        color: #f4f7f8;
-        display: grid;
-        min-height: 100vh;
-        place-items: start center;
-        padding: 8px 0 12px;
-        box-sizing: border-box;
-      }
-
       main {
         width: min(520px, calc(100vw - 24px));
-        background: #171717;
-        border: 1px solid #2b2b2b;
-        border-radius: 14px;
         padding: 12px;
-        box-sizing: border-box;
       }
 
-      h1 {
-        margin: 0 0 6px;
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin: -12px -12px 12px;
+        padding: 12px;
+        background: var(--titlebar);
+        border-bottom: 1px solid var(--line);
+        border-radius: 12px 12px 0 0;
       }
 
       video {
-        width: 100%;
-        background: #050505;
-        border-radius: 10px;
-        margin: 8px 0;
+        height: min(56vh, 480px);
+        height: min(56svh, 480px);
+        max-height: max(96px, calc(100vh - 272px));
+        max-height: max(96px, calc(100svh - 272px));
+        object-fit: contain;
+        margin: 0 0 12px;
       }
 
-      button {
-        appearance: none;
-        border: 0;
-        border-radius: 10px;
-        background: #6aa7ff;
-        color: #071017;
-        font-size: 17px;
-        font-weight: 700;
-        padding: 14px 18px;
-        width: 100%;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-      }
-
-      button.secondary {
-        background: #252c33;
-        color: #f4f7f8;
-      }
-
-      button.toggle-on {
-        background: #ffd166;
-        color: #171100;
-      }
-
-      button:disabled,
-      input:disabled,
-      select:disabled {
-        opacity: 0.55;
-      }
+      button { width: 100%; }
 
       .controls {
         display: none;
-        gap: 12px;
-        margin: 8px 0;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 12px;
       }
 
-
-      .controls.visible {
-        display: grid;
-      }
+      .controls.visible { display: grid; }
 
       .control {
         display: grid;
-        gap: 7px;
+        min-width: 0;
+        min-height: 48px;
+        padding: 4px 8px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--card);
       }
+
+      #flip { padding: 12px 8px; font-size: 12px; }
+      #flip svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--accent); }
+      #torch { grid-column: 1 / -1; }
 
       label {
-        color: #d7dde3;
-        font-size: 13px;
-        font-weight: 700;
-      }
-
-      input,
-      select {
-        width: 100%;
-        box-sizing: border-box;
-        border: 1px solid #343d46;
-        border-radius: 10px;
-        background: #0c1012;
-        color: #f4f7f8;
-        font-size: 16px;
-        min-height: 48px;
-        padding: 10px 12px;
+        color: var(--text-secondary);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
       }
 
       input[type="range"] {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 100%;
+        min-width: 0;
+        height: 24px;
+        margin: 0;
         padding: 0;
-        accent-color: #6aa7ff;
+        background: transparent;
+        accent-color: var(--accent);
+        cursor: pointer;
       }
 
-      p {
-        color: #aab2bd;
-        line-height: 1.45;
+      input[type="range"]::-webkit-slider-runnable-track {
+        height: 4px;
+        border-radius: 4px;
+        background: var(--line-strong);
       }
 
-      code {
+      input[type="range"]::-webkit-slider-thumb {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 12px;
+        height: 12px;
+        margin-top: -4px;
+        border: 0;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+
+      input[type="range"]::-moz-range-track {
+        height: 4px;
+        border-radius: 4px;
+        background: var(--line-strong);
+      }
+
+      input[type="range"]::-moz-range-thumb {
+        width: 12px;
+        height: 12px;
+        border: 0;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+
+      input[type="range"]:disabled { cursor: not-allowed; }
+      #status { margin: 12px 0; overflow-wrap: anywhere; }
+      .small { font-size: 12px; }
+
+      #session {
         display: block;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+        color: var(--text-secondary);
+        font-size: 10px;
         white-space: normal;
-        word-break: break-all;
-        background: #0c1012;
-        border: 1px solid #2b2b2b;
-        border-radius: 8px;
-        padding: 12px;
-        color: #6aa7ff;
-      }
-
-      .ok {
-        color: #58d68d;
-        font-weight: 700;
-      }
-
-      .err {
-        color: #ef4444;
-      }
-
-      .small {
-        font-size: 13px;
+        overflow-wrap: anywhere;
       }
     </style>
   </head>
   <body>
     <main>
-      <h1>visidaw</h1>
+      <header>
+        <h1 class="brand">VisiDAW</h1>
+        <span class="page-label">Phone camera</span>
+      </header>
       <video id="preview" autoplay muted playsinline></video>
       <div id="controls" class="controls" aria-label="Camera controls">
-        <button id="flip" class="secondary" type="button">Flip Camera</button>
-        <div class="control">
-          <label for="quality">Quality</label>
-          <select id="quality">
-            <option value="low">Low latency</option>
-            <option value="720p" selected>720p</option>
-            <option value="1080p">1080p</option>
-          </select>
-        </div>
-        <div id="zoomWrap" class="control" hidden>
-          <label for="zoom">Zoom</label>
-          <input id="zoom" type="range" min="1" max="1" step="0.1" value="1" />
+        <button id="flip" class="secondary" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="M20 8a8 8 0 0 0-14-3L3 8m0-5v5h5M4 16a8 8 0 0 0 14 3l3-3m0 5v-5h-5" />
+          </svg>
+          <span>Flip Camera</span>
+        </button>
+        <div id="zoomWrap" class="control">
+          <label id="zoomLabel" for="zoom">Zoom unavailable</label>
+          <input id="zoom" type="range" min="1" max="1" step="0.1" value="1" disabled />
         </div>
         <button id="torch" class="secondary" type="button" hidden>Torch Off</button>
       </div>
       <button id="start">Start Camera</button>
-      <p id="status" class="small">Waiting for camera permission.</p>
+      <p id="status" class="small" role="status" aria-live="polite">Waiting for camera permission.</p>
       <code id="session"></code>
     </main>
 
@@ -173,8 +160,7 @@
       const sessionLabel = document.getElementById("session");
       const controls = document.getElementById("controls");
       const flipButton = document.getElementById("flip");
-      const qualitySelect = document.getElementById("quality");
-      const zoomWrap = document.getElementById("zoomWrap");
+      const zoomLabel = document.getElementById("zoomLabel");
       const zoomSlider = document.getElementById("zoom");
       const torchButton = document.getElementById("torch");
       const iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -183,7 +169,6 @@
       let activeVideoTrack = null;
       let videoSender = null;
       let currentFacingMode = "environment";
-      let currentQualityPreset = "720p";
       let torchEnabled = false;
       let pollTimer = null;
       let answerApplied = false;
@@ -206,34 +191,13 @@
         status.className = className || "small";
       }
 
-      function getQualityConstraints(preset) {
-        if (preset === "low") {
-          return {
-            width: { ideal: 640 },
-            height: { ideal: 360 },
-            frameRate: { ideal: 24, max: 30 }
-          };
-        }
-
-        if (preset === "1080p") {
-          return {
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            frameRate: { ideal: 30, max: 30 }
-          };
-        }
-
+      function buildVideoConstraints() {
         return {
           width: { ideal: 1280 },
           height: { ideal: 720 },
-          frameRate: { ideal: 30, max: 30 }
+          frameRate: { ideal: 30, max: 30 },
+          facingMode: { ideal: currentFacingMode }
         };
-      }
-
-      function buildVideoConstraints() {
-        const constraints = getQualityConstraints(currentQualityPreset);
-        constraints.facingMode = { ideal: currentFacingMode };
-        return constraints;
       }
 
       function stopStream(stream) {
@@ -275,20 +239,23 @@
 
         controls.className = activeVideoTrack ? "controls visible" : "controls";
         flipButton.disabled = !activeVideoTrack;
-        qualitySelect.disabled = !activeVideoTrack;
-        qualitySelect.value = currentQualityPreset;
 
-        if (zoom && typeof zoom.min === "number" && typeof zoom.max === "number") {
+        if (zoom && Number.isFinite(zoom.min) && Number.isFinite(zoom.max) && zoom.max > zoom.min) {
           const step = typeof zoom.step === "number" && zoom.step > 0 ? zoom.step : 0.1;
           zoomSlider.min = zoom.min;
           zoomSlider.max = zoom.max;
           zoomSlider.step = step;
           zoomSlider.value = typeof settings.zoom === "number" ? settings.zoom : zoom.min;
           zoomSlider.disabled = false;
-          zoomWrap.hidden = false;
+          zoomLabel.textContent = "Zoom";
+          zoomSlider.title = "Adjust camera zoom";
         } else {
           zoomSlider.disabled = true;
-          zoomWrap.hidden = true;
+          zoomSlider.min = 1;
+          zoomSlider.max = 1;
+          zoomSlider.value = 1;
+          zoomLabel.textContent = "Zoom unavailable";
+          zoomSlider.title = "This camera/browser does not expose zoom controls.";
         }
 
         if (capabilities.torch === true) {
@@ -481,30 +448,6 @@
           currentFacingMode = previousFacingMode;
           try {
             await startOrRestartCamera("Camera restored.");
-          } catch (restoreError) {
-            setStatus("Camera setting failed: " + (restoreError.message || restoreError.name), "small err");
-          }
-        } finally {
-          refreshCameraControls();
-        }
-      };
-
-      qualitySelect.onchange = async () => {
-        if (!activeVideoTrack) {
-          return;
-        }
-
-        const previousPreset = currentQualityPreset;
-        currentQualityPreset = qualitySelect.value;
-        qualitySelect.disabled = true;
-
-        try {
-          await startOrRestartCamera("Quality changed.");
-        } catch (error) {
-          currentQualityPreset = previousPreset;
-          qualitySelect.value = previousPreset;
-          try {
-            await startOrRestartCamera("Quality restored.");
           } catch (restoreError) {
             setStatus("Camera setting failed: " + (restoreError.message || restoreError.name), "small err");
           }

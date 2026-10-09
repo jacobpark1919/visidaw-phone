@@ -15,6 +15,29 @@ Vercel is only used for pairing/signaling. The WebRTC media path should connect 
 
 ## Required Storage
 
+For local development, use Node.js 18 or newer and run:
+
+```sh
+npm run dev
+```
+
+Open `http://localhost:8000` for the phone page and
+`http://localhost:8000/desktop.html` for the receiver. Both default to the
+`manual` session; use matching `?s=your-session` values for other sessions.
+The local server handles `/api/signal` with temporary in-memory storage, so
+it needs no Redis credentials or package installation. Sessions expire after
+ten minutes without a signaling write and reset when the server restarts.
+The legacy `/api/frame` endpoint is not part of this local server.
+
+A static server such as `python3 -m http.server` only previews the pages;
+it cannot handle camera pairing and returns HTTP 501 for signaling POSTs.
+The local server binds to your computer's loopback address. To test with an
+actual phone, use the HTTPS deployment and its configured storage.
+Zoom is available only when the camera/browser exposes an adjustable zoom
+range; otherwise the slider remains visible but disabled.
+
+### Hosted storage
+
 Vercel serverless functions do not reliably share in-memory state between requests, so signaling needs Redis/KV storage.
 
 Create a Vercel KV / Upstash Redis database. Vercel may add these environment variables automatically:

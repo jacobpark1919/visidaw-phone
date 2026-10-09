@@ -1,0 +1,120 @@
+@font-face {
+  font-family: "JetBrains Mono NL";
+  src: url("/assets/fonts/jetbrains-mono/jetbrains_mono_nl_regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono NL";
+  src: url("/assets/fonts/jetbrains-mono/jetbrains_mono_nl_medium.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+}
+
+/* VisiDAWTheme.cpp dark surfaces and Squidward Blue accent. */
+:root {
+  color-scheme: dark;
+  --shell: #0a090c;
+  --app-bg: #151419;
+  --titlebar: #1c1b21;
+  --card: #24222a;
+  --card-hover: #292730;
+  --card-selected: #2f2d36;
+  --line: #2f2d36;
+  --line-strong: #3e3b47;
+  --text: #ebeaf0;
+  --text-secondary: #908d9e;
+  --accent: #82c7e8;
+  --coral: #ff6b57;
+  --lime: #c8f04d;
+  --brand-font: "JetBrains Mono NL", ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding: 12px 0;
+  background: var(--shell);
+  color: var(--text);
+  font-family: var(--brand-font);
+  font-size: 12px;
+  line-height: 1.5;
+  display: grid;
+  place-items: start center;
+}
+
+main {
+  background: var(--app-bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+h1 { margin: 0; font-size: 24px; font-weight: 500; letter-spacing: -0.04em; }
+
+.brand { display: flex; align-items: center; gap: 8px; }
+.page-label {
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+video {
+  display: block;
+  width: 100%;
+  background: var(--shell);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+button {
+  appearance: none;
+  min-height: 48px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 12px 16px;
+  background: var(--accent);
+  color: var(--shell);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button.secondary {
+  border-color: var(--line-strong);
+  background: var(--card);
+  color: var(--text);
+}
+
+button.toggle-on { background: var(--accent); color: var(--shell); }
+button:disabled { cursor: default; opacity: 0.55; }
+input:disabled { cursor: not-allowed; opacity: 0.45; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+@media (hover: hover) {
+  button:not(:disabled):hover { filter: brightness(1.08); }
+  button.secondary:not(:disabled):hover { background: var(--card-hover); filter: none; }
+}
+button:not(:disabled):active { filter: brightness(0.9); }
+button.secondary:not(:disabled):active { background: var(--card-selected); }
+
+p { color: var(--text-secondary); }
+code { color: var(--accent); font-family: inherit; }
+.ok { color: var(--lime); font-weight: 500; }
+.err { color: var(--coral); }
+::selection { background: var(--accent); color: var(--shell); }
