@@ -148,3 +148,25 @@ test("receiver advertises protocol 2 and reports integrity metadata", () => {
   assert.match(receiver, /finalFrameIntervalSeconds/);
   assert.match(receiver, /sequence,/);
 });
+
+test("embedded receiver hides browser controls without waiting for a native readiness event", () => {
+  const classes = [];
+  const elements = new Map();
+  const context = vm.createContext({
+    URLSearchParams,
+    window: { location: { search: "?s=embedded&embed=1" } },
+    document: {
+      documentElement: { classList: { add: (value) => classes.push(value) } },
+      getElementById(id) {
+        if (!elements.has(id)) elements.set(id, { controls: true });
+        return elements.get(id);
+      }
+    }
+  });
+  for (const script of receiver.matchAll(/<script>([\s\S]*?)<\/script>/g)) {
+    vm.runInContext(script[1], context);
+  }
+  assert.deepEqual(classes, ["embedded"]);
+  assert.equal(elements.get("remote").controls, false);
+  assert.equal(elements.get("remote").disablePictureInPicture, true);
+});

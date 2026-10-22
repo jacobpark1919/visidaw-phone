@@ -21,6 +21,41 @@
 
       .identity { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
       #status { margin: 12px 0 0; overflow-wrap: anywhere; }
+
+      /* The native player owns the chrome. Embedded layout must not depend on
+         a later native bridge event or on a successful connection. */
+      html.embedded, .embedded body, .embedded main {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        overflow: hidden;
+        display: block;
+        background: #000;
+      }
+      .embedded header { display: none; }
+      .embedded video {
+        width: 100%;
+        height: 100%;
+        aspect-ratio: auto;
+        object-fit: contain;
+        border: 0;
+        border-radius: 0;
+      }
+      .embedded #status {
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        margin: 0;
+        padding: 8px;
+        background: #000c;
+        pointer-events: none;
+      }
+      .embedded #status.ok { display: none; }
     </style>
   </head>
   <body>
@@ -74,18 +109,9 @@
       sessionLabel.textContent = session;
 
       if (embed) {
-        document.body.style.placeItems = "stretch";
-        document.querySelector("main").style.width = "100%";
-        document.querySelector("main").style.minHeight = "100vh";
-        document.querySelector("main").style.display = "grid";
-        document.querySelector("main").style.gridTemplateRows = "auto 1fr auto";
-        document.querySelector("main").style.padding = "0";
-        document.querySelector("header").style.padding = "10px";
-        document.querySelector("header").style.marginBottom = "0";
-        remote.style.borderRadius = "0";
-        remote.style.borderLeft = "0";
-        remote.style.borderRight = "0";
-        status.style.padding = "0 10px 10px";
+        document.documentElement.classList.add("embedded");
+        remote.controls = false;
+        remote.disablePictureInPicture = true;
       }
 
       function setStatus(message, kind = "") {

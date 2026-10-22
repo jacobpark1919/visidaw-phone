@@ -180,3 +180,104 @@ test("camera opens on the front camera and the flip button switches to the back 
   await phone.elements.get("flip").onclick();
   assert.deepEqual(requestedFacingModes, ["user", "environment", "user"]);
 });
+
+function cameraStream(name) {
+  const track = { kind: "video", readyState: "live", stop() { this.readyState = "ended"; } };
+  return { name, getVideoTracks: () => [track], getTracks: () => [track] };
+}
+
+function attachSender(phone, stream, replaceTrack) {
+  phone.context.initialStream = stream;
+  phone.context.sender = { track: stream.getVideoTracks()[0], replaceTrack };
+  phone.context.connection = { identity: "paired-peer" };
+  vm.runInContext("localStream = initialStream; activeVideoTrack = sender.track; videoSender = sender; peer = connection;", phone.context);
+}
+
+test("flip releases an exclusive camera before reopening and preserves the paired sender", async () => {
+  const phone = createPhone(null);
+  const front = cameraStream("front");
+  const back = cameraStream("back");
+  const restoredFront = cameraStream("front-again");
+  let current = front;
+  const replacements = [];
+  attachSender(phone, front, async (track) => { replacements.push(track); });
+  phone.context.navigator = { mediaDevices: { getUserMedia: async () => {
+    assert.equal(current.getVideoTracks()[0].readyState, "ended", "exclusive camera released first");
+    current = current === front ? back : restoredFront;
+    return current;
+  } } };
+  await phone.elements.get("flip").onclick();
+  await phone.elements.get("flip").onclick();
+  assert.deepEqual(replacements, [back.getVideoTracks()[0], restoredFront.getVideoTracks()[0]]);
+  assert.equal(vm.runInContext("peer === connection && videoSender === sender", phone.context), true);
+  assert.equal(phone.elements.get("preview").srcObject, restoredFront);
+  assert.equal(restoredFront.getVideoTracks()[0].readyState, "live");
+});
+
+test("rapid flips serialize camera acquisition and track replacement", async () => {
+  const phone = createPhone(null);
+  const front = cameraStream("front");
+  const back = cameraStream("back");
+  let acquired;
+  let replaced;
+  let opens = 0;
+  attachSender(phone, front, () => new Promise((resolve) => { replaced = resolve; }));
+  phone.context.navigator = { mediaDevices: { getUserMedia: () => {
+    opens++;
+    return new Promise((resolve) => { acquired = resolve; });
+  } } };
+  const flip = phone.elements.get("flip").onclick;
+  const first = flip();
+  await flip();
+  assert.equal(opens, 1);
+  acquired(back);
+  await new Promise((resolve) => setImmediate(resolve));
+  await flip();
+  assert.equal(opens, 1);
+  assert.equal(phone.elements.get("flip").disabled, true);
+  replaced();
+  await first;
+  assert.equal(phone.elements.get("flip").disabled, false);
+});
+
+for (const failure of ["acquire", "replace"]) {
+  test(`failed camera ${failure} restores the previous facing mode on the same connection`, async () => {
+    const phone = createPhone(null);
+    const front = cameraStream("front");
+    const rejected = cameraStream("back");
+    const restored = cameraStream("restored");
+    let replacements = 0;
+    attachSender(phone, front, async () => {
+      if (++replacements === 1 && failure === "replace") throw new Error("Replacement rejected");
+    });
+    const modes = [];
+    phone.context.navigator = { mediaDevices: { getUserMedia: async (constraints) => {
+      modes.push(constraints.video.facingMode.ideal);
+      if (modes.length === 1) {
+        if (failure === "acquire") throw new Error("Camera unavailable");
+        return rejected;
+      }
+      return restored;
+    } } };
+    await phone.elements.get("flip").onclick();
+    assert.deepEqual(modes, ["environment", "user"]);
+    if (failure === "replace") assert.equal(rejected.getVideoTracks()[0].readyState, "ended");
+    assert.equal(phone.elements.get("preview").srcObject, restored);
+    assert.equal(vm.runInContext("peer === connection && videoSender === sender", phone.context), true);
+    assert.match(phone.elements.get("status").textContent, /Previous camera restored/);
+  });
+}
+
+test("failed flip and recovery keep the pairing available for a subsequent retry", async () => {
+  const phone = createPhone(null);
+  attachSender(phone, cameraStream("front"), async () => {});
+  phone.context.navigator = { mediaDevices: { getUserMedia: async () => { throw new Error("Unavailable"); } } };
+  await phone.elements.get("flip").onclick();
+  assert.equal(phone.elements.get("flip").disabled, false);
+  assert.match(phone.elements.get("status").textContent, /retry/);
+  const stream = cameraStream("retry");
+  phone.context.navigator.mediaDevices.getUserMedia = async () => stream;
+  await phone.elements.get("flip").onclick();
+  assert.equal(phone.elements.get("preview").srcObject, stream);
+  assert.equal(vm.runInContext("peer === connection && videoSender === sender", phone.context), true);
+});

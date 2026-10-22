@@ -174,6 +174,7 @@
       let activeVideoTrack = null;
       let videoSender = null;
       let currentFacingMode = "user";
+      let cameraSwitchInProgress = false;
       let torchEnabled = false;
       let zoomFrame = null;
       let pendingZoom = null;
@@ -245,8 +246,8 @@
         const settings = getTrackSettings(activeVideoTrack);
         const zoom = capabilities.zoom;
 
-        controls.className = activeVideoTrack ? "controls visible" : "controls";
-        flipButton.disabled = !activeVideoTrack;
+        controls.className = activeVideoTrack || videoSender ? "controls visible" : "controls";
+        flipButton.disabled = cameraSwitchInProgress || (!activeVideoTrack && !videoSender);
 
         if (zoom && Number.isFinite(zoom.min) && Number.isFinite(zoom.max) && zoom.max > zoom.min) {
           const step = typeof zoom.step === "number" && zoom.step > 0 ? zoom.step : 0.01;
@@ -289,6 +290,16 @@
 
       async function startOrRestartCamera(message) {
         const oldStream = localStream;
+        // Release the capture device before opening the opposite camera. iOS
+        // cannot reliably capture both at once. Keep the existing RTP sender
+        // and peer connection so the receiver's track/recording stays intact.
+        window.cancelAnimationFrame(zoomFrame);
+        zoomFrame = null;
+        pendingZoom = null;
+        localStream = null;
+        activeVideoTrack = null;
+        video.srcObject = null;
+        stopStream(oldStream);
         let stream;
 
         try {
@@ -301,7 +312,10 @@
         const newTrack = stream.getVideoTracks()[0];
 
         try {
-          if (videoSender && newTrack) {
+          if (!newTrack) {
+            throw new Error("The camera returned no video track.");
+          }
+          if (videoSender) {
             await videoSender.replaceTrack(newTrack);
           }
         } catch (error) {
@@ -310,15 +324,10 @@
           throw error;
         }
 
-        // Discard queued zoom from the previous camera before replacing its track.
-        window.cancelAnimationFrame(zoomFrame);
-        zoomFrame = null;
-        pendingZoom = null;
         localStream = stream;
-        activeVideoTrack = newTrack || null;
+        activeVideoTrack = newTrack;
         torchEnabled = false;
         video.srcObject = stream;
-        stopStream(oldStream);
         refreshCameraControls();
 
         if (message) {
@@ -467,11 +476,12 @@
       }
 
       flipButton.onclick = async () => {
-        if (!activeVideoTrack) {
+        if (cameraSwitchInProgress || (!activeVideoTrack && !videoSender)) {
           return;
         }
 
         const previousFacingMode = currentFacingMode;
+        cameraSwitchInProgress = true;
         flipButton.disabled = true;
         currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
 
@@ -480,11 +490,13 @@
         } catch (error) {
           currentFacingMode = previousFacingMode;
           try {
-            await startOrRestartCamera("Camera restored.");
+            await startOrRestartCamera("Could not flip camera. Previous camera restored.");
           } catch (restoreError) {
-            setStatus("Camera setting failed: " + (restoreError.message || restoreError.name), "small err");
+            setStatus("Camera setting failed: " + (restoreError.message || restoreError.name)
+              + ". Tap Flip Camera to retry.", "small err");
           }
         } finally {
+          cameraSwitchInProgress = false;
           refreshCameraControls();
         }
       };

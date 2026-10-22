@@ -1,6 +1,7 @@
 # VisiDAW phone web
 
 This is the prototype HTTPS phone camera/WebRTC pairing site for VisiDAW.
+The production entry point is `https://visidaw-phone.com` (redirects to `www.visidaw-phone.com`).
 
 It is designed for Vercel:
 
@@ -68,7 +69,7 @@ Deploy this folder as the Vercel project root.
 After deployment, you can verify that KV is working by opening:
 
 ```text
-https://visidaw-phone.vercel.app/api/frame?session=test&debug=1
+https://visidaw-phone.com/api/frame?session=test&debug=1
 ```
 
 It should return JSON with `"ok": true`.
@@ -76,7 +77,7 @@ It should return JSON with `"ok": true`.
 After deployment, the desktop app expects:
 
 ```text
-https://visidaw-phone.vercel.app
+https://visidaw-phone.com
 ```
 
 Before distributing a native build that requires recorder protocol 2, verify in the deployed receiver console:
@@ -100,9 +101,18 @@ If your Vercel URL changes, configure the desktop build with
 ## WebRTC Flow
 
 1. In VisiDAW, choose `Phone as Webcam (WebRTC)`.
-2. VisiDAW opens `desktop.html?s=<session>` in the computer's browser.
+2. VisiDAW embeds `desktop.html?s=<session>&embed=1&auto=1` in its video player.
 3. Scan the QR from VisiDAW with the iPhone.
 4. Tap `Start Camera`.
-5. Click `Start Receiver` in the desktop browser page if it has not already started.
+5. The embedded receiver starts automatically. When testing the standalone receiver page, click `Start Receiver`.
+
+Embedded mode fills the player, preserves the camera aspect ratio, and hides page
+chrome and native video controls. It does not rely on the native readiness bridge
+to apply its layout. Camera flips release the current capture device before
+opening the other camera and replace the track on the existing WebRTC sender.
+Overlapping flips are ignored; a failed switch attempts to restore the previous
+camera without replacing the peer connection. Test repeated front/back flips
+on iPhone Safari and Android Chrome, including during desktop recording, before
+qualifying a deployment; mock tests cannot verify device capture behavior.
 
 The embedded receiver records the remote stream with `MediaRecorder`. It assigns chunk sequence numbers before asynchronous reads, waits for the final `dataavailable` event and all reads, and then sends integrity and duration metadata to the native app for local storage and timeline insertion.
