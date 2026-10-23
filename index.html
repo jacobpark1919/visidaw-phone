@@ -183,6 +183,9 @@
       let answerApplied = false;
       let offerPosted = false;
       let queuedCandidates = [];
+      let offerId = null;
+      let candidateWrites = Promise.resolve();
+      let answerPollInProgress = false;
       const addedDesktopCandidates = new Set();
 
       sessionLabel.textContent = "Session: " + session;
@@ -363,10 +366,18 @@
         return response.json();
       }
 
+      function queueCandidate(payload) {
+        candidateWrites = candidateWrites.catch(() => {}).then(() => {
+          if (payload.offerId === offerId) return postSignal(payload);
+        });
+        return candidateWrites;
+      }
+
       async function sendCandidate(candidate) {
         const payload = {
           type: "candidate",
           role: "phone",
+          offerId,
           candidate: candidate.toJSON ? candidate.toJSON() : candidate
         };
 
@@ -375,7 +386,7 @@
           return;
         }
 
-        await postSignal(payload);
+        await queueCandidate(payload);
       }
 
       async function flushQueuedCandidates() {
@@ -383,34 +394,44 @@
         queuedCandidates = [];
 
         for (const candidate of candidates) {
-          await postSignal(candidate);
+          await queueCandidate(candidate);
         }
       }
 
       async function pollDesktopAnswer() {
-        if (!peer) {
+        if (!peer || !offerPosted || answerPollInProgress) {
           return;
         }
 
+        const currentPeer = peer;
+        const currentOfferId = offerId;
+        answerPollInProgress = true;
         try {
           const state = await getSignal();
+          if (peer !== currentPeer || offerId !== currentOfferId || state.offerId !== currentOfferId) return;
 
           if (state.answer && !answerApplied) {
-            await peer.setRemoteDescription(state.answer);
+            await currentPeer.setRemoteDescription(state.answer);
+            if (peer !== currentPeer) return;
             answerApplied = true;
-            setStatus("WebRTC connected. Session: " + session, "small ok");
+            setStatus("Desktop found. Connecting. Session: " + session, "small");
           }
 
+          if (!answerApplied) return;
           for (const candidate of state.desktopCandidates || []) {
             const key = candidateKey(candidate);
 
             if (!addedDesktopCandidates.has(key)) {
+              await currentPeer.addIceCandidate(candidate);
+              if (peer !== currentPeer) return;
               addedDesktopCandidates.add(key);
-              await peer.addIceCandidate(candidate);
             }
           }
         } catch (error) {
-          setStatus("Signal error: " + (error.message || error.name), "small err");
+          if (peer === currentPeer)
+            setStatus("Signal error: " + (error.message || error.name), "small err");
+        } finally {
+          answerPollInProgress = false;
         }
       }
 
@@ -513,15 +534,27 @@
       torchButton.onclick = toggleTorch;
 
       button.onclick = async () => {
+        if (button.disabled) return;
         try {
           button.disabled = true;
           button.textContent = "Starting";
           setStatus("Opening camera.", "small");
 
+          if (peer) peer.close();
+          peer = null;
+          videoSender = null;
+          offerId = window.crypto.randomUUID();
+          answerApplied = false;
+          offerPosted = false;
+          queuedCandidates = [];
+          candidateWrites = Promise.resolve();
+          addedDesktopCandidates.clear();
           const stream = await startOrRestartCamera();
 
           peer = new RTCPeerConnection({ iceServers });
-          peer.oniceconnectionstatechange = () => {
+          const currentPeer = peer;
+          currentPeer.oniceconnectionstatechange = () => {
+            if (peer !== currentPeer) return;
             setStatus(
               "WebRTC " + peer.iceConnectionState + ". Session: " + session,
               peer.iceConnectionState === "connected" || peer.iceConnectionState === "completed"
@@ -529,10 +562,11 @@
               : "small"
             );
           };
-          peer.onicecandidate = (event) => {
-            if (event.candidate) {
+          currentPeer.onicecandidate = (event) => {
+            if (peer === currentPeer && event.candidate) {
               sendCandidate(event.candidate).catch((error) => {
-                setStatus("Candidate error: " + (error.message || error.name), "small err");
+                if (peer === currentPeer)
+                  setStatus("Candidate error: " + (error.message || error.name), "small err");
               });
             }
           };
@@ -550,6 +584,7 @@
           await postSignal({
             type: "offer",
             role: "phone",
+            offerId,
             description: peer.localDescription
           });
 
@@ -563,6 +598,10 @@
             pollTimer = setInterval(pollDesktopAnswer, 700);
           }
         } catch (error) {
+          const failedPeer = peer;
+          peer = null;
+          if (failedPeer) failedPeer.close();
+          videoSender = null;
           button.disabled = false;
           button.textContent = "Start Camera";
           setStatus("Camera/WebRTC error: " + (error.message || error.name), "small err");

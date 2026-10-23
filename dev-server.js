@@ -28,8 +28,7 @@ function createMemoryKv() {
   };
 }
 
-function createDevServer() {
-  const kv = createMemoryKv();
+function createDevServer(kv = createMemoryKv()) {
   const signal = createHandler(async () => kv);
   const files = new Map([
     ["/", ["index.html", "text/html; charset=utf-8"]],

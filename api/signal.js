@@ -79,7 +79,16 @@ function createHandler(getStore = getKv) {
 
       if (req.method === "GET") {
         const session = getSession(req);
-        const state = await kv.get(`floof:webrtc:${session}`);
+        const key = `floof:webrtc:${session}`;
+        let state = await kv.get(key);
+        if (state && state.offerId) {
+          const prefix = `${key}:${state.offerId}`;
+          const [answer, phoneCandidates, desktopCandidates] = await Promise.all([
+            kv.get(`${prefix}:answer`), kv.get(`${prefix}:phone`), kv.get(`${prefix}:desktop`)
+          ]);
+          state = { ...state, answer: answer || null,
+            phoneCandidates: phoneCandidates || [], desktopCandidates: desktopCandidates || [] };
+        }
         res.status(200).json(state || createEmptyState(session));
         return;
       }
@@ -109,6 +118,41 @@ function createHandler(getStore = getKv) {
 
       state.session = session;
       state.updatedAt = Date.now();
+
+      // Scope each page's negotiation separately from the reusable QR session.
+      // Late writes from an old peer never rewrite the current offer or answer.
+      const offerId = body.offerId;
+      if (offerId !== undefined || state.offerId) {
+        if (typeof offerId !== "string" || !/^[a-zA-Z0-9_-]{1,64}$/.test(offerId)) {
+          res.status(409).json({ error: "Reload the phone page to reconnect" });
+          return;
+        }
+        const prefix = `${key}:${offerId}`;
+        if (type === "offer") {
+          if (!body.description || body.description.type !== "offer" || !body.description.sdp) {
+            res.status(400).json({ error: "Invalid offer" });
+            return;
+          }
+          await kv.set(key, { ...createEmptyState(session), offerId, offer: body.description }, { ex: 600 });
+        } else {
+          if (state.offerId !== offerId) {
+            res.status(409).json({ error: "Connection has been replaced" });
+            return;
+          }
+          if (type === "answer") {
+            await kv.set(`${prefix}:answer`, body.description || null, { ex: 600 });
+          } else if (type === "candidate" && (role === "phone" || role === "desktop")) {
+            // Each peer serializes its candidate writes; the two roles have independent keys.
+            const candidates = await kv.get(`${prefix}:${role}`) || [];
+            await kv.set(`${prefix}:${role}`, addCandidate(candidates, body.candidate), { ex: 600 });
+          } else {
+            res.status(400).json({ error: "Unknown signal type or role" });
+            return;
+          }
+        }
+        res.status(200).json({ ok: true });
+        return;
+      }
 
       if (type === "offer") {
         state.offer = body.description || null;

@@ -100,11 +100,33 @@ If your Vercel URL changes, configure the desktop build with
 
 ## WebRTC Flow
 
-1. In VisiDAW, choose `Phone as Webcam (WebRTC)`.
+1. In VisiDAW, choose `Phone as Webcam`.
 2. VisiDAW embeds `desktop.html?s=<session>&embed=1&auto=1` in its video player.
 3. Scan the QR from VisiDAW with the iPhone.
 4. Tap `Start Camera`.
 5. The embedded receiver starts automatically. When testing the standalone receiver page, click `Start Receiver`.
+
+The QR URL identifies a reusable pairing session. If the phone page closes, scan
+the same QR again and tap **Start Camera**. The receiver polls for the new offer,
+closes the previous peer, and attaches the new stream without refreshing VisiDAW.
+Disconnected video is cleared instead of leaving the last camera frame on screen.
+An interrupted recording is finalized from its original stream; reconnecting does
+not append a different phone stream to that take or automatically start a new take.
+
+Each phone start has a separate `offerId`. Answers and candidate lists are stored
+under that ID, with independent keys for each role. Candidate writes from each
+page are serialized, so old in-flight writes cannot replace the current offer or
+contaminate a new connection. Temporary signaling still expires after ten minutes;
+opening the same URL creates fresh signaling without changing the QR session.
+This is scoped to the desktop's current session, not a permanent device identity.
+
+Deploy `index.html`, `desktop.html`, and `api/signal.js` together for reconnect
+support. A receiver page already open from an older deployment must be reloaded
+once to pick up the fix. Recorder protocol 2 and its timing convention are unchanged.
+`npm test` covers repeat reconnects, stale callbacks/answers, delayed signaling writes,
+failed handshake retries, and recording ownership. Before release, repeat
+close/rescan/start on iPhone Safari and Android Chrome with the native receiver,
+including an interrupted recording; mock tests do not qualify those devices.
 
 Embedded mode fills the player, preserves the camera aspect ratio, and hides page
 chrome and native video controls. It does not rely on the native readiness bridge

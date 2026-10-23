@@ -49,3 +49,56 @@ test("local signaling storage expires sessions and isolates stored objects", asy
   await kv.set("expired", state, { ex: -1 });
   assert.equal(await kv.get("expired"), null);
 });
+
+test("one QR session survives new phone pages and delayed writes cannot restore the old connection", async (t) => {
+  const kv = createMemoryKv();
+  const originalSet = kv.set.bind(kv);
+  let releaseAnswer;
+  let answerStarted;
+  const started = new Promise((resolve) => { answerStarted = resolve; });
+  const blocked = new Promise((resolve) => { releaseAnswer = resolve; });
+  kv.set = async (key, value, options) => {
+    if (key.endsWith(":first:answer")) {
+      answerStarted();
+      await blocked;
+    }
+    return originalSet(key, value, options);
+  };
+  const server = createDevServer(kv);
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const endpoint = `http://127.0.0.1:${server.address().port}/api/signal?s=same-qr`;
+  const post = (body) => fetch(endpoint, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+  });
+  const offer = (offerId) => post({ type: "offer", offerId,
+    description: { type: "offer", sdp: `sdp-${offerId}` } });
+  assert.equal((await offer("first")).status, 200);
+  const delayedAnswer = post({ type: "answer", offerId: "first", description: { sdp: "stale" } });
+  await started;
+  assert.equal((await offer("second")).status, 200);
+  await post({ type: "answer", offerId: "second", description: { sdp: "current" } });
+  await Promise.all(["phone", "desktop"].map((role) => post({
+    type: "candidate", role, offerId: "second", candidate: { candidate: role }
+  })));
+  releaseAnswer();
+  await delayedAnswer;
+  assert.equal((await post({ type: "candidate", role: "phone", offerId: "first",
+    candidate: { candidate: "stale" } })).status, 409);
+  const state = await (await fetch(endpoint)).json();
+  assert.equal(state.offerId, "second");
+  assert.equal(state.offer.sdp, "sdp-second");
+  assert.equal(state.answer.sdp, "current");
+  assert.deepEqual(state.phoneCandidates, [{ candidate: "phone" }]);
+  assert.deepEqual(state.desktopCandidates, [{ candidate: "desktop" }]);
+
+  // A long pause may expire the temporary signaling entry, not the QR URL.
+  await kv.del("floof:webrtc:same-qr");
+  assert.equal((await offer("third")).status, 200);
+  const fresh = await (await fetch(endpoint)).json();
+  assert.equal(fresh.offerId, "third");
+  assert.equal(fresh.answer, null);
+  assert.deepEqual(fresh.phoneCandidates, []);
+  assert.deepEqual(fresh.desktopCandidates, []);
+});

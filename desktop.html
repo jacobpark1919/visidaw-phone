@@ -83,9 +83,9 @@
       const sessionLabel = document.getElementById("session");
       const iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
       let peer = null;
-      let offerApplied = false;
-      let answerPosted = false;
-      let queuedCandidates = [];
+      let connection = null;
+      let receiverRunning = false;
+      let pollInProgress = false;
       let remoteStream = null;
       let mediaRecorder = null;
       let recorderStopRequested = false;
@@ -102,7 +102,6 @@
       let captureBoundaryFallbackTimer = null;
       let captureBoundaryHardTimer = null;
       let activeVisiDAWRecordingTakeId = null;
-      const addedPhoneCandidates = new Set();
 
       window.visidawRecorderProtocolVersion = 2;
 
@@ -117,6 +116,8 @@
       function setStatus(message, kind = "") {
         status.textContent = message + " Session: " + session;
         status.className = kind;
+        // Older native builds hide this element inline after receiver readiness.
+        if (embed && status.style) status.style.display = kind === "ok" ? "none" : "";
       }
 
       function emitToVisiDAW(payload) {
@@ -223,7 +224,7 @@
         );
         recorderStopRequested = false;
         mediaRecorder = null;
-        setStatus("WebRTC video saved.", "ok");
+        if (remoteStream) setStatus("WebRTC video saved.", "ok");
         emitToVisiDAW({
           type: "stopped",
           chunkCount: nextRecorderChunkSequence,
@@ -394,7 +395,7 @@
 
           mediaRecorder.onstop = () => {
             recorderStopRequested = true;
-            setStatus("Finishing WebRTC video.", "ok");
+            if (remoteStream) setStatus("Finishing WebRTC video.", "ok");
             maybeEmitRecorderStopped();
           };
 
@@ -513,99 +514,152 @@
         return response.json();
       }
 
-      async function sendCandidate(candidate) {
+      function queueCandidate(owner, payload) {
+        owner.writes = owner.writes.catch(() => {}).then(() => {
+          if (connection === owner) return postSignal(payload);
+        });
+        return owner.writes;
+      }
+
+      async function sendCandidate(owner, candidate) {
         const payload = {
           type: "candidate",
           role: "desktop",
+          offerId: owner.offerId,
           candidate: candidate.toJSON ? candidate.toJSON() : candidate
         };
 
-        if (!answerPosted) {
-          queuedCandidates.push(payload);
+        if (!owner.answerPosted) {
+          owner.queuedCandidates.push(payload);
           return;
         }
 
-        await postSignal(payload);
+        await queueCandidate(owner, payload);
       }
 
-      async function flushQueuedCandidates() {
-        const candidates = queuedCandidates;
-        queuedCandidates = [];
+      async function flushQueuedCandidates(owner) {
+        const candidates = owner.queuedCandidates;
+        owner.queuedCandidates = [];
 
         for (const candidate of candidates) {
-          await postSignal(candidate);
+          await queueCandidate(owner, candidate);
         }
+      }
+
+      function clearPhonePreview() {
+        stopMediaRecorderNow(); // Finalize the old take; never splice a new phone into it.
+        remoteStream = null;
+        remote.srcObject = null;
+      }
+
+      function replacePhoneConnection(state, key) {
+        if (peer) {
+          peer.ontrack = null;
+          peer.onicecandidate = null;
+          peer.oniceconnectionstatechange = null;
+          peer.close();
+        }
+        clearPhonePreview();
+        const currentPeer = new RTCPeerConnection({ iceServers });
+        const owner = { peer: currentPeer, key, offerId: state.offerId,
+          answerPosted: false, queuedCandidates: [], addedCandidates: new Set(),
+          writes: Promise.resolve(), stream: null };
+        connection = owner;
+        peer = currentPeer;
+        currentPeer.ontrack = (event) => {
+          if (connection !== owner) return;
+          owner.stream = event.streams && event.streams[0]
+            ? event.streams[0] : new MediaStream([event.track]);
+          remoteStream = owner.stream;
+          remote.srcObject = remoteStream;
+          event.track.onended = () => {
+            if (connection !== owner) return;
+            owner.stream = null;
+            clearPhonePreview();
+            setStatus("Phone disconnected. Scan the same QR code to reconnect.");
+          };
+        };
+        currentPeer.oniceconnectionstatechange = () => {
+          if (connection !== owner) return;
+          const iceState = currentPeer.iceConnectionState;
+          const connected = iceState === "connected" || iceState === "completed";
+          if (connected && owner.stream) {
+            remoteStream = owner.stream;
+            remote.srcObject = remoteStream;
+          } else if (["disconnected", "failed", "closed"].includes(iceState)) {
+            clearPhonePreview();
+            setStatus("Phone disconnected. Scan the same QR code to reconnect.");
+            return;
+          }
+          setStatus("WebRTC " + iceState + ".", connected ? "ok" : "");
+        };
+        currentPeer.onicecandidate = (event) => {
+          if (connection !== owner || !event.candidate) return;
+          sendCandidate(owner, event.candidate).catch((error) => {
+            if (connection === owner)
+              setStatus("Candidate error: " + (error.message || error.name), "err");
+          });
+        };
+        return owner;
       }
 
       async function pollPhoneOffer() {
-        if (!peer) {
-          return;
-        }
-
+        if (!receiverRunning || pollInProgress) return;
+        pollInProgress = true;
         try {
           const state = await getSignal();
+          if (!state.offer) return;
+          const key = state.offerId || state.offer.sdp;
 
-          if (state.offer && !offerApplied) {
-            await peer.setRemoteDescription(state.offer);
-            offerApplied = true;
+          if (!connection || connection.key !== key) {
+            const owner = replacePhoneConnection(state, key);
+            await owner.peer.setRemoteDescription(state.offer);
 
-            const answer = await peer.createAnswer();
-            await peer.setLocalDescription(answer);
+            const answer = await owner.peer.createAnswer();
+            await owner.peer.setLocalDescription(answer);
             await postSignal({
               type: "answer",
               role: "desktop",
-              description: peer.localDescription
+              offerId: owner.offerId,
+              description: owner.peer.localDescription
             });
 
-            answerPosted = true;
-            await flushQueuedCandidates();
+            owner.answerPosted = true;
+            await flushQueuedCandidates(owner);
             setStatus("Answer sent. Connecting.");
           }
 
           for (const candidate of state.phoneCandidates || []) {
             const key = candidateKey(candidate);
 
-            if (!addedPhoneCandidates.has(key)) {
-              addedPhoneCandidates.add(key);
+            if (!connection.addedCandidates.has(key)) {
               await peer.addIceCandidate(candidate);
+              connection.addedCandidates.add(key);
             }
           }
         } catch (error) {
+          if (connection && !connection.answerPosted) {
+            peer.close();
+            connection = null;
+            peer = null;
+            clearPhonePreview();
+          }
           setStatus("Signal error: " + (error.message || error.name), "err");
+        } finally {
+          pollInProgress = false;
         }
       }
 
       button.onclick = async () => {
+        if (receiverRunning) return;
         try {
           button.disabled = true;
           button.textContent = "Receiver Running";
           setStatus("Waiting for phone offer.");
 
-          peer = new RTCPeerConnection({ iceServers });
-          peer.ontrack = (event) => {
-            if (event.streams && event.streams[0]) {
-              remoteStream = event.streams[0];
-              remote.srcObject = remoteStream;
-            } else {
-              remoteStream = new MediaStream([event.track]);
-              remote.srcObject = remoteStream;
-            }
-          };
-          peer.oniceconnectionstatechange = () => {
-            const state = peer.iceConnectionState;
-            const connected = state === "connected" || state === "completed";
-            setStatus("WebRTC " + state + ".", connected ? "ok" : "");
-          };
-          peer.onicecandidate = (event) => {
-            if (event.candidate) {
-              sendCandidate(event.candidate).catch((error) => {
-                setStatus("Candidate error: " + (error.message || error.name), "err");
-              });
-            }
-          };
-
+          receiverRunning = true;
           setInterval(pollPhoneOffer, 700);
-          pollPhoneOffer();
+          await pollPhoneOffer();
         } catch (error) {
           button.disabled = false;
           button.textContent = "Start Receiver";
