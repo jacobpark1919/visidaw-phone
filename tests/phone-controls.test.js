@@ -155,7 +155,7 @@ test("failed zoom restores camera settings and allows the next drag to retry", a
   rejectZoom(new Error("Zoom failed"));
   await failedZoom;
   assert.equal(phone.elements.get("zoom").value, 2);
-  assert.equal(phone.elements.get("status").textContent, "Camera setting failed: Zoom failed");
+  assert.equal(phone.elements.get("status").textContent, "Couldn't change the zoom: Zoom failed");
   assert.equal(phone.frames.size, 0);
 
   let applied;
