@@ -133,6 +133,12 @@
         background: var(--screen);
       }
 
+      /* iOS draws its own play button on an empty video; nothing here is playable by tapping */
+      video::-webkit-media-controls,
+      video::-webkit-media-controls-start-playback-button { display: none !important; -webkit-appearance: none; }
+      .stage-idle video { visibility: hidden; }
+      video.mirror { transform: scaleX(-1); }
+
       .empty {
         position: absolute;
         inset: 0;
@@ -427,6 +433,8 @@
       }
 
       .chips button.on { background: var(--accent); border-color: transparent; color: var(--on-accent); }
+      .chips button { gap: 0; }
+      .chips small { margin-left: 1px; font-size: 0.8em; }
 
       /* Once the camera is on, it fills the screen like a camera app and the controls float over it */
       main:is(.stage-camera, .stage-waiting, .stage-found, .stage-live) {
@@ -487,7 +495,7 @@
         gap: 16px 12px;
         padding: 56px 20px max(20px, env(safe-area-inset-bottom));
         border-top: 0;
-        background: linear-gradient(transparent, rgb(0 0 0 / 60%));
+        background: linear-gradient(transparent, rgb(0 0 0 / 70%));
       }
 
       :is(.stage-camera, .stage-waiting, .stage-found, .stage-live) .zoom {
@@ -501,9 +509,89 @@
 
       :is(.stage-camera, .stage-waiting, .stage-found, .stage-live) .zoom:has(input:disabled),
       :is(.stage-camera, .stage-waiting, .stage-found, .stage-live) .zoom :is(label, output),
-      :is(.stage-camera, .stage-waiting, .stage-found, .stage-live) .zoom:not(.fine) input { display: none; }
+      :is(.stage-camera, .stage-waiting, .stage-found, .stage-live) .zoom input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+      }
 
-      :is(.stage-camera, .stage-waiting, .stage-found, .stage-live) .zoom input { width: min(100%, 300px); --rail: rgb(255 255 255 / 30%); }
+      :is(.stage-camera, .stage-waiting, .stage-found, .stage-live) .zoom {
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+      }
+
+      /* Hold a zoom button (or drag across them) and the presets turn into a dial, like the iPhone camera */
+      .dial { display: none; }
+      :is(.stage-camera, .stage-waiting, .stage-found, .stage-live) .zoom.dialing .chips { display: none; }
+
+      :is(.stage-camera, .stage-waiting, .stage-found, .stage-live) .zoom.dialing .dial {
+        display: grid;
+        justify-items: center;
+        gap: 10px;
+        width: calc(100% + 40px);
+        margin: 0 -20px;
+      }
+
+      .dial-value {
+        min-width: 64px;
+        padding: 5px 12px;
+        border-radius: 999px;
+        background: rgb(0 0 0 / 45%);
+        -webkit-backdrop-filter: blur(14px);
+        backdrop-filter: blur(14px);
+        color: var(--accent);
+        font-family: var(--mono);
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: -0.04em;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .dial-window {
+        position: relative;
+        width: 100%;
+        height: 64px;
+        overflow: hidden;
+        border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+        background: linear-gradient(rgb(0 0 0 / 55%), rgb(0 0 0 / 30%));
+        -webkit-backdrop-filter: blur(14px) saturate(160%);
+        backdrop-filter: blur(14px) saturate(160%);
+        -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+        mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+      }
+
+      /* The fixed needle the ruler slides under */
+      .dial-window::after {
+        content: "";
+        position: absolute;
+        top: 8px;
+        left: calc(50% - 1px);
+        width: 2px;
+        height: 22px;
+        border-radius: 2px;
+        background: var(--accent);
+      }
+
+      .dial-ruler { position: absolute; top: 12px; left: 50%; height: 100%; will-change: transform; }
+      .dial-ruler.settle { transition: transform 220ms var(--ease); }
+      .dial-ruler i { position: absolute; top: 2px; width: 1px; height: 10px; background: rgb(255 255 255 / 40%); }
+      .dial-ruler i.major { top: 0; height: 16px; width: 1.5px; background: #fff; }
+
+      .dial-ruler b {
+        position: absolute;
+        top: 26px;
+        transform: translateX(-50%);
+        font-family: var(--mono);
+        font-weight: 700;
+        font-size: 12px;
+        letter-spacing: -0.04em;
+        color: rgb(255 255 255 / 85%);
+      }
 
       :is(.stage-camera, .stage-waiting, .stage-found, .stage-live) .chips { gap: 2px; padding: 4px; border-radius: 999px; }
 
@@ -553,8 +641,8 @@
         width: 24px;
         height: 24px;
         background: currentColor;
-        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13 2 4 14h7l-1 8 9-12h-7z'/%3E%3C/svg%3E") center / contain no-repeat;
-        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13 2 4 14h7l-1 8 9-12h-7z'/%3E%3C/svg%3E") center / contain no-repeat;
+        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z'/%3E%3C/svg%3E") center / contain no-repeat;
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z'/%3E%3C/svg%3E") center / contain no-repeat;
       }
 
       :is(.stage-camera, .stage-waiting, .stage-found, .stage-live) #torch.toggle-on { background: var(--accent); color: var(--on-accent); }
@@ -567,10 +655,9 @@
         right: 88px;
         bottom: max(20px, env(safe-area-inset-bottom));
         min-height: 56px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
+        display: block;
+        align-content: center;
+        text-align: center;
         color: #fff;
         font-size: 14px;
         font-weight: 500;
@@ -580,9 +667,11 @@
 
       :is(.stage-camera, .stage-waiting, .stage-found, .stage-live) #status::before {
         content: "";
-        flex: none;
+        display: inline-block;
         width: 8px;
         height: 8px;
+        margin-right: 8px;
+        vertical-align: 1px;
         border-radius: 50%;
         background: rgb(255 255 255 / 55%);
       }
@@ -678,6 +767,10 @@
           <label id="zoomLabel" for="zoom">Zoom unavailable</label>
           <output id="zoomValue" for="zoom"></output>
           <div id="zoomChips" class="chips" role="group" aria-label="Zoom presets"></div>
+          <div id="zoomDial" class="dial" aria-hidden="true">
+            <span id="zoomDialValue" class="dial-value"></span>
+            <div class="dial-window"><div id="zoomRuler" class="dial-ruler"></div></div>
+          </div>
           <input id="zoom" type="range" min="1" max="1" step="0.01" value="1" disabled />
         </div>
         <button id="flip" type="button">
@@ -708,6 +801,8 @@
       const zoomValue = document.getElementById("zoomValue");
       const zoomWrap = document.getElementById("zoomWrap");
       const zoomChips = document.getElementById("zoomChips");
+      const zoomDialValue = document.getElementById("zoomDialValue");
+      const zoomRuler = document.getElementById("zoomRuler");
             const iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
       let peer = null;
       let localStream = null;
@@ -817,6 +912,7 @@
         zoomSlider.style?.setProperty("--fill", max > min ? ((value - min) / (max - min)) * 100 + "%" : "0%");
         zoomValue.textContent = zoomSlider.disabled ? "" : value.toFixed(1) + "x";
         renderZoomChips(min, max, value);
+        updateZoomDial();
       }
 
       // iPhone-style presets (.5, 1, 2, 3...) inside the camera's real zoom range.
@@ -826,37 +922,176 @@
         return presets.slice(0, 4);
       }
 
-      function zoomChipLabel(zoom) {
-        const text = Number.isInteger(zoom) ? String(zoom) : zoom.toFixed(1).replace(/^0/, "");
-        return text + "×";
+      function formatZoom(zoom) {
+        const rounded = Math.round(zoom * 10) / 10;
+        return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1).replace(/^0/, "");
       }
 
+      // The selected button is the highest preset at or below the zoom, and shows the exact
+      // value in between presets (2.4×), as the iPhone camera does.
       function renderZoomChips(min, max, value) {
         if (zoomSlider.disabled) {
           zoomChips.innerHTML = "";
           return;
         }
 
-        zoomChips.innerHTML = zoomPresets(min, max).map((zoom) => {
-          const active = Math.abs(zoom - value) < 0.05;
+        const presets = zoomPresets(min, max);
+        const selected = presets.filter((zoom) => zoom <= value + 0.05).pop() ?? presets[0];
+
+        zoomChips.innerHTML = presets.map((zoom) => {
+          const active = zoom === selected;
+          const label = active ? formatZoom(value) : formatZoom(zoom);
           return '<button type="button" data-zoom="' + zoom + '" aria-pressed="' + active + '"'
-            + (active ? ' class="on"' : "") + ">" + zoomChipLabel(zoom) + "</button>";
+            + ' aria-label="Zoom ' + formatZoom(zoom) + 'x"'
+            + (active ? ' class="on"' : "") + ">" + label + "<small>×</small></button>";
         }).join("");
       }
 
-      // Tap a preset to jump to it; tap the selected one again to show the fine slider.
-      zoomChips.onclick = (event) => {
-        const chip = event.target.closest && event.target.closest("[data-zoom]");
-        if (!chip || zoomSlider.disabled) return;
-        const zoom = Number(chip.dataset.zoom);
+      function setZoom(zoom) {
+        const min = Number(zoomSlider.min);
+        const max = Number(zoomSlider.max);
+        zoomSlider.value = Math.min(max, Math.max(min, zoom));
+        zoomSlider.oninput();
+      }
 
-        if (Math.abs(zoom - Number(zoomSlider.value)) < 0.05) {
-          zoomWrap.classList.toggle("fine");
+      // Zoom dial: zoom is laid out on a log scale so each doubling is the same drag distance.
+      const dialSpacing = 110;
+      let dialGesture = null;
+      let dialCloseTimer = null;
+
+      function dialOffset(zoom) {
+        return Math.log2(zoom / Number(zoomSlider.min)) * dialSpacing;
+      }
+
+      function buildZoomDial() {
+        const min = Number(zoomSlider.min);
+        const max = Number(zoomSlider.max);
+        const presets = zoomPresets(min, max);
+        const end = dialOffset(max);
+        let marks = "";
+
+        for (let x = 0; x <= end + 0.5; x += dialSpacing / 10) {
+          marks += '<i style="left:' + x.toFixed(1) + 'px"></i>';
+        }
+
+        for (const zoom of presets) {
+          const x = dialOffset(zoom).toFixed(1);
+          marks += '<i class="major" style="left:' + x + 'px"></i><b style="left:' + x + 'px">' + formatZoom(zoom) + "</b>";
+        }
+
+        zoomRuler.innerHTML = marks;
+      }
+
+      function updateZoomDial() {
+        if (!zoomWrap.classList || !zoomWrap.classList.contains("dialing")) return;
+        const value = Number(zoomSlider.value);
+        zoomRuler.style.transform = "translateX(" + (-dialOffset(value)).toFixed(1) + "px)";
+        zoomDialValue.textContent = formatZoom(value) + "×";
+      }
+
+      function openZoomDial() {
+        clearTimeout(dialCloseTimer);
+        if (!zoomWrap.classList.contains("dialing")) {
+          buildZoomDial();
+          zoomWrap.classList.add("dialing");
+        }
+        updateZoomDial();
+      }
+
+      function closeZoomDialSoon(delay) {
+        clearTimeout(dialCloseTimer);
+        dialCloseTimer = setTimeout(() => zoomWrap.classList.remove("dialing"), delay);
+      }
+
+      function chipFromPoint(event) {
+        return event.target.closest && event.target.closest("[data-zoom]");
+      }
+
+      // Tap a preset to jump to it. Hold one, or drag across them, to open the dial and keep
+      // dragging to zoom. Tapping the selected preset opens the dial without holding.
+      zoomWrap.onpointerdown = (event) => {
+        if (zoomSlider.disabled || dialGesture) return;
+        const dialing = zoomWrap.classList.contains("dialing");
+        dialGesture = {
+          id: event.pointerId,
+          startX: event.clientX,
+          startZoom: Number(zoomSlider.value),
+          chip: chipFromPoint(event),
+          open: dialing,
+          lastPreset: null
+        };
+        clearTimeout(dialCloseTimer);
+        zoomWrap.setPointerCapture(event.pointerId);
+        dialGesture.holdTimer = setTimeout(() => {
+          if (!dialGesture || dialGesture.open) return;
+          dialGesture.open = true;
+          openZoomDial();
+          navigator.vibrate?.(10);
+        }, 320);
+      };
+
+      zoomWrap.onpointermove = (event) => {
+        const gesture = dialGesture;
+        if (!gesture || gesture.id !== event.pointerId) return;
+        const dx = event.clientX - gesture.startX;
+
+        if (!gesture.open) {
+          if (Math.abs(dx) < 8) return;
+          gesture.open = true;
+          gesture.startX = event.clientX;
+          openZoomDial();
           return;
         }
 
-        zoomSlider.value = zoom;
-        zoomSlider.oninput();
+        // Drag left to zoom in: the ruler follows the finger under the fixed needle.
+        const offset = dialOffset(gesture.startZoom) - dx;
+        const zoom = Number(zoomSlider.min) * Math.pow(2, offset / dialSpacing);
+        zoomRuler.classList.remove("settle");
+        setZoom(zoom);
+
+        const preset = zoomPresets(Number(zoomSlider.min), Number(zoomSlider.max))
+          .find((value) => Math.abs(dialOffset(value) - offset) < 3);
+        if (preset !== undefined && preset !== gesture.lastPreset) navigator.vibrate?.(6);
+        gesture.lastPreset = preset ?? null;
+      };
+
+      function endZoomGesture(event) {
+        const gesture = dialGesture;
+        if (!gesture || gesture.id !== event.pointerId) return;
+        clearTimeout(gesture.holdTimer);
+        dialGesture = null;
+
+        if (gesture.open) {
+          // Snap to a preset when released close to one.
+          const value = Number(zoomSlider.value);
+          const preset = zoomPresets(Number(zoomSlider.min), Number(zoomSlider.max))
+            .find((zoom) => Math.abs(dialOffset(zoom) - dialOffset(value)) < 8);
+          if (preset !== undefined && event.type === "pointerup") {
+            zoomRuler.classList.add("settle");
+            setZoom(preset);
+          }
+          closeZoomDialSoon(1600);
+          return;
+        }
+
+        if (event.type !== "pointerup" || !gesture.chip) return;
+        const zoom = Number(gesture.chip.dataset.zoom);
+        if (gesture.chip.classList.contains("on")) {
+          openZoomDial();
+          closeZoomDialSoon(2600);
+        } else {
+          setZoom(zoom);
+        }
+      }
+
+      zoomWrap.onpointerup = endZoomGesture;
+      zoomWrap.onpointercancel = endZoomGesture;
+
+      // Keyboard: Enter or Space on a preset (pointer taps are handled above).
+      zoomChips.onclick = (event) => {
+        const chip = chipFromPoint(event);
+        if (!chip || event.detail !== 0 || zoomSlider.disabled) return;
+        setZoom(Number(chip.dataset.zoom));
       };
 
       function buildVideoConstraints() {
@@ -989,6 +1224,8 @@
         activeVideoTrack = newTrack;
         torchEnabled = false;
         video.srcObject = stream;
+        const facing = getTrackSettings(newTrack).facingMode || currentFacingMode;
+        video.className = facing === "user" ? "mirror" : "";
         refreshCameraControls();
         keepScreenAwake();
 
