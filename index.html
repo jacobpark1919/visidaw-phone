@@ -528,69 +528,94 @@
       .dial { display: none; }
       :is(.stage-camera, .stage-waiting, .stage-found, .stage-live) .zoom.dialing .chips { display: none; }
 
+      /* A large disc whose top edge shows as an arc; ticks and numbers sit along its rim and
+         the whole ring turns under a fixed needle. The script sets --r to the disc radius. */
       :is(.stage-camera, .stage-waiting, .stage-found, .stage-live) .zoom.dialing .dial {
-        display: grid;
-        justify-items: center;
-        gap: 10px;
-        width: calc(100% + 40px);
-        margin: 0 -20px;
-      }
-
-      .dial-value {
-        min-width: 64px;
-        padding: 5px 12px;
-        border-radius: 999px;
-        background: rgb(0 0 0 / 45%);
-        -webkit-backdrop-filter: blur(14px);
-        backdrop-filter: blur(14px);
-        color: var(--accent);
-        font-family: var(--mono);
-        font-weight: 700;
-        font-size: 15px;
-        letter-spacing: -0.04em;
-        text-align: center;
-        font-variant-numeric: tabular-nums;
-      }
-
-      .dial-window {
+        display: block;
         position: relative;
-        width: 100%;
-        height: 64px;
+        width: calc(100% + 40px);
+        height: 136px;
+        margin: 0 -20px -8px;
         overflow: hidden;
-        border-radius: 50% 50% 0 0 / 100% 100% 0 0;
-        background: linear-gradient(rgb(0 0 0 / 55%), rgb(0 0 0 / 30%));
-        -webkit-backdrop-filter: blur(14px) saturate(160%);
-        backdrop-filter: blur(14px) saturate(160%);
-        -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
-        mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+        --r: 340px;
+        --rim: 22px;
       }
 
-      /* The fixed needle the ruler slides under */
-      .dial-window::after {
+      .dial-face {
+        position: absolute;
+        top: var(--rim);
+        left: 50%;
+        width: calc(var(--r) * 2);
+        height: calc(var(--r) * 2);
+        margin-left: calc(var(--r) * -1);
+        border-radius: 50%;
+        background: rgb(0 0 0 / 50%);
+        box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%);
+        -webkit-backdrop-filter: blur(16px) saturate(160%);
+        backdrop-filter: blur(16px) saturate(160%);
+      }
+
+      /* Fixed needle above the rim */
+      .dial::after {
         content: "";
         position: absolute;
-        top: 8px;
-        left: calc(50% - 1px);
-        width: 2px;
-        height: 22px;
-        border-radius: 2px;
-        background: var(--accent);
+        top: 9px;
+        left: calc(50% - 5px);
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 8px solid var(--accent);
       }
 
-      .dial-ruler { position: absolute; top: 12px; left: 50%; height: 100%; will-change: transform; }
+      /* Rotation centre is the disc centre; each mark is rotated out to the rim */
+      .dial-ruler {
+        position: absolute;
+        top: calc(var(--rim) + var(--r));
+        left: 50%;
+        width: 0;
+        height: 0;
+        will-change: transform;
+      }
+
       .dial-ruler.settle { transition: transform 220ms var(--ease); }
-      .dial-ruler i { position: absolute; top: 2px; width: 1px; height: 10px; background: rgb(255 255 255 / 40%); }
-      .dial-ruler i.major { top: 0; height: 16px; width: 1.5px; background: #fff; }
+
+      .dial-ruler i {
+        position: absolute;
+        left: -0.5px;
+        top: 0;
+        width: 1px;
+        height: 10px;
+        transform-origin: 50% 0;
+        background: rgb(255 255 255 / 45%);
+      }
+
+      .dial-ruler i.major { left: -0.75px; width: 1.5px; height: 16px; background: #fff; }
 
       .dial-ruler b {
         position: absolute;
-        top: 26px;
-        transform: translateX(-50%);
+        left: 0;
+        top: 0;
+        transform-origin: 0 0;
         font-family: var(--mono);
         font-weight: 700;
-        font-size: 12px;
+        font-size: 13px;
         letter-spacing: -0.04em;
-        color: rgb(255 255 255 / 85%);
+        color: #fff;
+        white-space: nowrap;
+        transition: opacity 120ms linear;
+      }
+
+      .dial-value {
+        position: absolute;
+        top: 46px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: var(--accent);
+        font-family: var(--mono);
+        font-weight: 700;
+        font-size: 16px;
+        letter-spacing: -0.04em;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
       }
 
       :is(.stage-camera, .stage-waiting, .stage-found, .stage-live) .chips { gap: 2px; padding: 4px; border-radius: 999px; }
@@ -634,7 +659,7 @@
       }
 
       /* The script rewrites the flashlight label, so the icon is drawn here and the text kept for screen readers */
-      :is(.stage-camera, .stage-waiting, .stage-found, .stage-live) #torch { grid-column: 3; font-size: 0; }
+      :is(.stage-camera, .stage-waiting, .stage-found, .stage-live) #torch { grid-column: 3; gap: 0; font-size: 0; }
 
       :is(.stage-camera, .stage-waiting, .stage-found, .stage-live) #torch::before {
         content: "";
@@ -768,8 +793,9 @@
           <output id="zoomValue" for="zoom"></output>
           <div id="zoomChips" class="chips" role="group" aria-label="Zoom presets"></div>
           <div id="zoomDial" class="dial" aria-hidden="true">
+            <span class="dial-face"></span>
+            <div id="zoomRuler" class="dial-ruler"></div>
             <span id="zoomDialValue" class="dial-value"></span>
-            <div class="dial-window"><div id="zoomRuler" class="dial-ruler"></div></div>
           </div>
           <input id="zoom" type="range" min="1" max="1" step="0.01" value="1" disabled />
         </div>
@@ -803,6 +829,7 @@
       const zoomChips = document.getElementById("zoomChips");
       const zoomDialValue = document.getElementById("zoomDialValue");
       const zoomRuler = document.getElementById("zoomRuler");
+      const zoomDial = document.getElementById("zoomDial");
             const iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
       let peer = null;
       let localStream = null;
@@ -963,30 +990,51 @@
         return Math.log2(zoom / Number(zoomSlider.min)) * dialSpacing;
       }
 
+      // Drag distance maps to distance along the rim, so the ring turns under the finger.
+      let dialRadius = 340;
+      let dialLabels = [];
+
+      function dialAngle(zoom) {
+        return (dialOffset(zoom) / dialRadius) * (180 / Math.PI);
+      }
+
       function buildZoomDial() {
         const min = Number(zoomSlider.min);
         const max = Number(zoomSlider.max);
-        const presets = zoomPresets(min, max);
+        dialRadius = Math.round(Math.max(300, window.innerWidth * 0.8));
+        zoomDial.style.setProperty("--r", dialRadius + "px");
+        const degreesPerPx = 180 / (Math.PI * dialRadius);
         const end = dialOffset(max);
         let marks = "";
 
-        for (let x = 0; x <= end + 0.5; x += dialSpacing / 10) {
-          marks += '<i style="left:' + x.toFixed(1) + 'px"></i>';
+        for (let x = 0; x <= end + 0.5; x += dialSpacing / 16) {
+          marks += '<i style="transform:rotate(' + (x * degreesPerPx).toFixed(2) + 'deg) translateY(-'
+            + (dialRadius - 6) + 'px)"></i>';
         }
 
-        for (const zoom of presets) {
-          const x = dialOffset(zoom).toFixed(1);
-          marks += '<i class="major" style="left:' + x + 'px"></i><b style="left:' + x + 'px">' + formatZoom(zoom) + "</b>";
+        for (const zoom of zoomPresets(min, max)) {
+          const angle = dialAngle(zoom).toFixed(2);
+          marks += '<i class="major" style="transform:rotate(' + angle + 'deg) translateY(-' + (dialRadius - 4) + 'px)"></i>'
+            + '<b data-angle="' + angle + '" style="transform:rotate(' + angle + 'deg) translate(-50%, -'
+            + (dialRadius - 26) + 'px)">' + formatZoom(zoom) + "</b>";
         }
 
         zoomRuler.innerHTML = marks;
+        dialLabels = Array.from(zoomRuler.querySelectorAll("b"));
       }
 
       function updateZoomDial() {
         if (!zoomWrap.classList || !zoomWrap.classList.contains("dialing")) return;
         const value = Number(zoomSlider.value);
-        zoomRuler.style.transform = "translateX(" + (-dialOffset(value)).toFixed(1) + "px)";
+        const angle = dialAngle(value);
+        zoomRuler.style.transform = "rotate(" + (-angle).toFixed(2) + "deg)";
         zoomDialValue.textContent = formatZoom(value) + "×";
+
+        // Numbers fade as they pass under the readout, as on the iPhone dial.
+        for (const label of dialLabels) {
+          const distance = Math.abs(Number(label.dataset.angle) - angle);
+          label.style.opacity = Math.min(1, Math.max(0, (distance - 7) / 5)).toFixed(2);
+        }
       }
 
       function openZoomDial() {
