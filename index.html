@@ -100,8 +100,16 @@
         background: var(--screen);
       }
 
-      .logo span { display: flex; align-items: center; gap: 1.5px; }
-      .logo i { display: block; border-radius: 24px; background: var(--accent); }
+      /* The waveform mark (visidaw-web public/images/visidaw-logo.svg, 2160x2400), bars placed in percentages of its box */
+      .logo span { position: relative; height: 23px; aspect-ratio: 2160 / 2400; }
+      .logo i { position: absolute; border-radius: 999px; background: linear-gradient(#83c8e8 0%, #82c6e8 20%, #71adcb 40%, #5a8aa0 60%, #4a7184 80%, #497082 100%); }
+      .logo i:nth-child(1) { --bar: 0; left: 0; width: 7.407%; top: 37.5%; height: 25%; background: linear-gradient(#bababa, #89c4eb); }
+      .logo i:nth-child(2) { --bar: 1; left: 12.963%; width: 9.259%; top: 25%; height: 50%; }
+      .logo i:nth-child(3) { --bar: 2; left: 27.778%; width: 10.185%; top: 12.5%; height: 75%; }
+      .logo i:nth-child(4) { --bar: 3; left: 43.519%; width: 12.963%; top: 0; height: 100%; background: linear-gradient(#82c7e8, #496f82); }
+      .logo i:nth-child(5) { --bar: 4; left: 62.037%; width: 10.185%; top: 12.5%; height: 75%; }
+      .logo i:nth-child(6) { --bar: 5; left: 77.778%; width: 9.259%; top: 25%; height: 50%; }
+      .logo i:nth-child(7) { --bar: 6; left: 92.593%; width: 7.407%; top: 37.5%; height: 25%; background: linear-gradient(#89ceeb, #bababa); }
 
       .wordmark {
         font-family: var(--mono);
@@ -155,7 +163,7 @@
       }
 
       .empty .logo { width: 56px; height: 56px; border-radius: 14px; background: rgb(255 255 255 / 6%); }
-      .empty .logo span { gap: 3px; }
+      .empty .logo span { height: 38px; }
       main:not(.stage-idle):not(.stage-error) .empty { opacity: 0; pointer-events: none; }
 
       /* Connection steps: grey rail and dots that fill ice blue, like the site's step indicator */
@@ -749,15 +757,7 @@
     <main id="app" class="stage-idle">
       <header>
         <h1 class="brand">
-          <span class="logo" aria-hidden="true"><span>
-            <i style="--bar:0;width:2px;height:7px;opacity:.25"></i>
-            <i style="--bar:1;width:2px;height:13px;opacity:.4"></i>
-            <i style="--bar:2;width:2.5px;height:18px;opacity:.75"></i>
-            <i style="--bar:3;width:3px;height:24px"></i>
-            <i style="--bar:4;width:2.5px;height:18px;opacity:.75"></i>
-            <i style="--bar:5;width:2px;height:13px;opacity:.4"></i>
-            <i style="--bar:6;width:2px;height:7px;opacity:.25"></i>
-          </span></span>
+          <span class="logo" aria-hidden="true"><span><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></span>
           <span class="titles">
             <span class="wordmark">VisiDAW</span>
             <span class="page-label">Phone camera</span>
@@ -768,15 +768,7 @@
       <div class="stage">
         <video id="preview" autoplay muted playsinline></video>
         <div class="empty" aria-hidden="true">
-          <span class="logo"><span>
-            <i style="width:3px;height:12px;opacity:.25"></i>
-            <i style="width:3px;height:22px;opacity:.4"></i>
-            <i style="width:4px;height:32px;opacity:.75"></i>
-            <i style="width:5px;height:42px"></i>
-            <i style="width:4px;height:32px;opacity:.75"></i>
-            <i style="width:3px;height:22px;opacity:.4"></i>
-            <i style="width:3px;height:12px;opacity:.25"></i>
-          </span></span>
+          <span class="logo"><span><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></span>
           Your camera will appear here
         </div>
       </div>
