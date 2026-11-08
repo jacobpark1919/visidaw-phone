@@ -375,8 +375,9 @@
           0 1px 2px rgb(30 30 70 / 12%);
       }
 
-      /* Starting / Streaming: quiet, with a pulse showing it is working */
-      #start:disabled {
+      /* Starting / Streaming: quiet, with a pulse showing it is working.
+         An unpaired page stays idle and uses the ordinary disabled appearance. */
+      main:not(.stage-idle) #start:disabled {
         opacity: 1;
         border-color: var(--line);
         background: #fff;
@@ -384,7 +385,7 @@
         box-shadow: none;
       }
 
-      #start:disabled::before {
+      main:not(.stage-idle) #start:disabled::before {
         content: "";
         width: 8px;
         height: 8px;
@@ -396,6 +397,8 @@
         button:not(:disabled):hover { background: #f2f2f5; }
         button.toggle-on:not(:disabled):hover, #start:not(:disabled):hover { background: var(--accent-hover); }
       }
+
+      #session:empty { display: none; }
 
       #session {
         max-width: 50%;
@@ -730,7 +733,7 @@
         main > :nth-child(2) { animation-delay: 60ms; }
         main > :nth-child(3) { animation-delay: 120ms; }
         main > :nth-child(n + 4) { animation-delay: 180ms; }
-        #start:disabled::before { animation: pulse 1.4s ease-in-out infinite; }
+        main:not(.stage-idle) #start:disabled::before { animation: pulse 1.4s ease-in-out infinite; }
         .logo i { animation: bounce 700ms var(--ease) calc(var(--bar) * 50ms + 200ms) both; }
       }
 
