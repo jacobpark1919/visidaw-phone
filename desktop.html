@@ -74,7 +74,8 @@
     <script src="/recorder-protocol.js"></script>
     <script>
       const params = new URLSearchParams(window.location.search);
-      const session = params.get("session") || params.get("s") || "manual";
+      const session = params.get("session") ?? params.get("s") ?? "";
+      const hasPairingSession = /^[a-zA-Z0-9_-]{1,64}$/.test(session) && session !== "manual";
       const embed = params.get("embed") === "1";
       const autoStart = params.get("auto") === "1";
       const remote = document.getElementById("remote");
@@ -105,7 +106,11 @@
 
       window.visidawRecorderProtocolVersion = 2;
 
-      sessionLabel.textContent = session;
+      sessionLabel.textContent = hasPairingSession ? session : "";
+      if (!hasPairingSession) {
+        button.disabled = true;
+        status.textContent = "Open Phone as Webcam in VisiDAW to start a paired receiver.";
+      }
 
       if (embed) {
         document.documentElement.classList.add("embedded");
@@ -651,7 +656,7 @@
       }
 
       button.onclick = async () => {
-        if (receiverRunning) return;
+        if (!hasPairingSession || receiverRunning) return;
         try {
           button.disabled = true;
           button.textContent = "Receiver Running";
@@ -667,7 +672,7 @@
         }
       };
 
-      if (autoStart) {
+      if (autoStart && hasPairingSession) {
         window.addEventListener("load", () => {
           setTimeout(() => button.click(), 250);
         });

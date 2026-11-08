@@ -84,8 +84,8 @@ if (require.main === module) {
     process.exitCode = 1;
   });
   server.listen(port, "127.0.0.1", () => {
-    console.log(`VisiDAW phone: http://localhost:${port}`);
-    console.log(`Receiver: http://localhost:${port}/desktop.html`);
+    console.log(`VisiDAW phone: http://localhost:${port}/?s=local-test`);
+    console.log(`Receiver: http://localhost:${port}/desktop.html?s=local-test`);
     console.log("Local signaling is ready. Sessions reset when the server restarts.");
   });
 }

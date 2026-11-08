@@ -805,7 +805,8 @@
 
     <script>
       const params = new URLSearchParams(window.location.search);
-      const session = params.get("session") || params.get("s") || "manual";
+      const session = params.get("session") ?? params.get("s") ?? "";
+      const hasPairingSession = /^[a-zA-Z0-9_-]{1,64}$/.test(session) && session !== "manual";
       const video = document.getElementById("preview");
       const button = document.getElementById("start");
       const status = document.getElementById("status");
@@ -842,7 +843,11 @@
       let answerPollInProgress = false;
       const addedDesktopCandidates = new Set();
 
-      sessionLabel.textContent = "Session: " + session;
+      sessionLabel.textContent = hasPairingSession ? "Session: " + session : "";
+      if (!hasPairingSession) {
+        button.disabled = true;
+        setStatus("Scan the pairing QR code in VisiDAW to connect this camera.", "small");
+      }
 
       function candidateKey(candidate) {
         return [
@@ -1468,7 +1473,7 @@
       torchButton.onclick = toggleTorch;
 
       button.onclick = async () => {
-        if (button.disabled) return;
+        if (!hasPairingSession || button.disabled) return;
         try {
           button.disabled = true;
           button.textContent = "Starting";

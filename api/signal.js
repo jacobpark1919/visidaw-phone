@@ -28,14 +28,10 @@ async function getKv() {
   return module.kv || module.default;
 }
 
-function sanitizeSession(value) {
-  return String(value || "manual")
-    .replace(/[^a-zA-Z0-9_-]/g, "")
-    .slice(0, 64) || "manual";
-}
-
 function getSession(req, body = {}) {
-  return sanitizeSession(req.query.session || req.query.s || body.session);
+  const value = req.query.session ?? req.query.s ?? body?.session;
+  return typeof value === "string" && /^[a-zA-Z0-9_-]{1,64}$/.test(value)
+    && value !== "manual" ? value : null;
 }
 
 function createEmptyState(session) {
@@ -75,10 +71,13 @@ function createHandler(getStore = getKv) {
     }
 
     try {
-      const kv = await getStore();
-
       if (req.method === "GET") {
         const session = getSession(req);
+        if (!session) {
+          res.status(400).json({ error: "A valid pairing session is required" });
+          return;
+        }
+        const kv = await getStore();
         const key = `floof:webrtc:${session}`;
         let state = await kv.get(key);
         if (state && state.offerId) {
@@ -100,6 +99,11 @@ function createHandler(getStore = getKv) {
 
       const body = await readJson(req);
       const session = getSession(req, body);
+      if (!session) {
+        res.status(400).json({ error: "A valid pairing session is required" });
+        return;
+      }
+      const kv = await getStore();
       const key = `floof:webrtc:${session}`;
       const type = String(body.type || "");
       const role = String(body.role || "");

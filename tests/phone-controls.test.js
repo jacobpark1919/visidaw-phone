@@ -14,7 +14,7 @@ function createPhone(track) {
   const context = vm.createContext({
     URLSearchParams,
     window: {
-      location: { search: "" },
+      location: { search: "?s=controls-test" },
       requestAnimationFrame(callback) {
         frames.set(++frameId, callback);
         return frameId;

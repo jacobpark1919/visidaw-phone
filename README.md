@@ -22,9 +22,11 @@ For local development, use Node.js 18 or newer and run:
 npm run dev
 ```
 
-Open `http://localhost:8000` for the phone page and
-`http://localhost:8000/desktop.html` for the receiver. Both default to the
-`manual` session; use matching `?s=your-session` values for other sessions.
+Open `http://localhost:8000/?s=local-test` for the phone page and
+`http://localhost:8000/desktop.html?s=local-test` for the receiver. Use matching
+explicit session values for each pair. In production, scan VisiDAW's pairing QR
+code. Pages without a valid session cannot start a camera or receiver; the APIs
+also reject missing/invalid sessions and the retired shared `manual` room.
 The local server handles `/api/signal` with temporary in-memory storage, so
 it needs no Redis credentials or package installation. Sessions expire after
 ten minutes without a signaling write and reset when the server restarts.

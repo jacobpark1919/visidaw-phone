@@ -20,9 +20,9 @@ async function getKv() {
 }
 
 function getSession(req) {
-  return String(req.query.session || "manual")
-    .replace(/[^a-zA-Z0-9_-]/g, "")
-    .slice(0, 64) || "manual";
+  const value = req.query.session;
+  return typeof value === "string" && /^[a-zA-Z0-9_-]{1,64}$/.test(value)
+    && value !== "manual" ? value : null;
 }
 
 function setCorsHeaders(res) {
@@ -41,6 +41,10 @@ module.exports = async function handler(req, res) {
   }
 
   const session = getSession(req);
+  if (!session) {
+    res.status(400).json({ error: "A valid pairing session is required" });
+    return;
+  }
   const key = `floof:frame:${session}`;
 
   if (req.method === "GET" && req.query.debug === "1") {
